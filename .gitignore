@@ -1,0 +1,8 @@
+libobj/
+libout/
+.kdev4/
+*.kdev4
+examplesobj/
+examplesout/
+lastvalgrindout
+valgrindcall
