@@ -1,5 +1,5 @@
-#ifndef __MQTT_SESSION_H
-#define __MQTT_SESSION_H
+#ifndef __MQTT_H
+#define __MQTT_H
 
 #include <stdbool.h>
 
@@ -31,7 +31,9 @@ void mqtt_session_set_event_cb(mqtt_session_t *mc, mqtt_session_event_handler_t 
  */
 typedef void (*mqtt_session_message_handler_t)(mqtt_session_t *mc, const char *topic, void *message, size_t len);
 typedef void (*mqtt_session_error_handler_t)(mqtt_session_t *mc, enum mqtt_session_error err);
-mqtt_session_t *mqtt_session_setup(struct bufferevent *bev, mqtt_session_message_handler_t msg_handler, mqtt_session_error_handler_t err_handler, void *userdata);
+typedef struct bufferevent *(*build_connection_t)(void *state);
+
+mqtt_session_t *mqtt_session_setup(struct event_base *base, build_connection_t conn_builder, void *conn_state, mqtt_session_message_handler_t msg_handler, mqtt_session_error_handler_t err_handler, void *userdata);
 void mqtt_session_cleanup(mqtt_session_t *mc);
 
 /**
@@ -40,7 +42,7 @@ void mqtt_session_cleanup(mqtt_session_t *mc);
 void mqtt_session_will_set(mqtt_session_t *mc, const char *topic, const void *payload, size_t payloadlen, uint8_t qos, bool retain);
 
 void mqtt_session_connect(mqtt_session_t *mc, char *id, bool clean_session, uint16_t keep_alive, char *username, char *password);
-void mqtt_session_reconnect(mqtt_session_t *mc, bool clean_session, struct bufferevent *bev);
+void mqtt_session_reconnect(mqtt_session_t *mc, bool clean_session);
 void mqtt_session_disconnect(mqtt_session_t *mc);
 
 /**

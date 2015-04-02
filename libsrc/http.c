@@ -26,7 +26,7 @@ http_ssl_conn_t *http_ssl_setup(struct event_base *base, lew_ssl_t *essl)
     res->essl = essl;
     // TODO blocking DNS!
     res->evhttpcon = evhttp_connection_base_bufferevent_new(base, NULL,
-                     lew_ssl_extract_bev(essl),
+                     lew_ssl_reconnect(essl),
                      lew_ssl_get_hostname(essl),
                      lew_ssl_get_port(essl));
 

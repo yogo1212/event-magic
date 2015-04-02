@@ -4,11 +4,10 @@
 #include <time.h>
 
 #include <event2/buffer.h>
-#include <event2/bufferevent.h>
 
 #include "mqtt_proto.h"
 
-#include "mqtt_session.h"
+#include "mqtt.h"
 
 enum MQTT_STATE {
     //MQTT_STATE_INVALID = 0,
@@ -22,7 +21,10 @@ enum MQTT_STATE {
 };
 
 struct mqtt_session {
+    struct event_base *base;
     struct bufferevent *bev;
+    build_connection_t conn_builder;
+    void *conn_state;
     mqtt_session_message_handler_t msg_handler;
     mqtt_session_error_handler_t err_handler;
     char *last_error;
@@ -784,35 +786,39 @@ void mqtt_session_connect(mqtt_session_t *mc, char *id, bool clean_session, uint
         mc->data.password.buf = strdup(password);
         mc->data.password.len = strlen(password);
     }
-
-    mqtt_send_connect(mc);
-    struct timeval interval = { mc->data.keep_alive, 0 };
-    event_add(mc->timeout_evt, &interval);
 }
 
-void mqtt_session_reconnect(mqtt_session_t *mc, bool clean_session, struct bufferevent *bev)
+void mqtt_session_reconnect(mqtt_session_t* mc, bool clean_session)
 {
     // TODO only valid if disconnected or connected
     mc->data.clean_session = clean_session;
 
-    if (bev) {
-        mc->bev = bev;
-    }
+    if (mc->bev)
+        bufferevent_free(mc->bev);
+
+    mc->bev = mc->conn_builder(mc->conn_state);
+
+    bufferevent_setwatermark(mc->bev, EV_READ, 2, 0);
+    bufferevent_setcb(mc->bev, read_callback, NULL, event_callback, mc);
+    bufferevent_enable(mc->bev, EV_READ); /* Start reading. */
 
     mqtt_send_connect(mc);
     struct timeval interval = { mc->data.keep_alive, 0 };
     event_add(mc->timeout_evt, &interval);
 }
 
-mqtt_session_t *mqtt_session_setup(struct bufferevent *bev, mqtt_session_message_handler_t msg_handler, mqtt_session_error_handler_t err_handler, void *userdata)
+mqtt_session_t *mqtt_session_setup(struct event_base *base, build_connection_t conn_builder, void *conn_state, mqtt_session_message_handler_t msg_handler, mqtt_session_error_handler_t err_handler, void *userdata)
 {
     mqtt_session_t *res = malloc(sizeof(mqtt_session_t));
+    res->conn_builder = conn_builder;
+    res->conn_state = conn_state;
     res->state = MQTT_STATE_PREPARING;
-    res->bev = bev;
+    res->base = base;
+    res->bev = NULL;
     res->err_handler = err_handler;
     res->msg_handler = msg_handler;
     res->userdata = userdata;
-    res->timeout_evt = event_new(bufferevent_get_base(bev), -1, EV_TIMEOUT | EV_PERSIST, mqtt_timeout, res);
+    res->timeout_evt = event_new(res->base, -1, EV_TIMEOUT | EV_PERSIST, mqtt_timeout, res);
     res->last_error = NULL;
 
     res->data.will_flag = false;
@@ -830,12 +836,6 @@ mqtt_session_t *mqtt_session_setup(struct bufferevent *bev, mqtt_session_message
     res->event_cb = NULL;
 
     res->next_mid = 0;
-
-    bufferevent_setwatermark(bev, EV_READ, 2, 0);
-
-    bufferevent_setcb(bev, read_callback, NULL, event_callback, res);
-
-    bufferevent_enable(bev, EV_READ); /* Start reading. */
 
     return res;
 }

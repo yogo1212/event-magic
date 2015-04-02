@@ -26,6 +26,8 @@ topic_tokenizer_t *topic_tokenizer_create(const char *topic)
     strncpy(res->topic, topic, sizeof(res->topic) - 1);
     res->topic[sizeof(res->topic) - 1] = '\0';
     res->topic_pnt = res->topic;
+    
+    res->current[0] = '\0';
 
     return res;
 }
@@ -33,6 +35,12 @@ topic_tokenizer_t *topic_tokenizer_create(const char *topic)
 void topic_tokenizer_free(topic_tokenizer_t *tokenizer)
 {
     free(tokenizer);
+}
+
+void topic_tokenizer_reset(topic_tokenizer_t *tokenizer)
+{
+    tokenizer->topic_pnt = tokenizer->topic;
+    tokenizer->current[0] = '\0';
 }
 
 char *topic_tokenizer_get_next_particle(topic_tokenizer_t *from)

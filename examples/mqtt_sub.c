@@ -6,7 +6,7 @@
 #include <event2/event.h>
 #include <event2/buffer.h>
 
-#include <mqtt_session.h>
+#include <mqtt.h>
 #include <ssl.h>
 
 struct event_base *base;
@@ -104,9 +104,8 @@ int main(int argc, char *argv[])
                          ssl_errorcb
                      );
 
-    lew_ssl_connect(ssl);
     /* SSL is still not connected - but we can start writing to the bufferevent */
-    mqtt_session_t *mc = mqtt_session_setup(lew_ssl_extract_bev(ssl), mqtt_msgcb, mqtt_errorcb, NULL);
+    mqtt_session_t *mc = mqtt_session_setup(base, lew_ssl_reconnect, ssl, mqtt_msgcb, mqtt_errorcb, NULL);
     mqtt_session_connect(mc, "event-driven-ssl-test", true, 10, NULL, NULL);
 
     mqtt_session_sub(mc, topic, 1);

@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 
     bufferevent_setcb(c.stdinevent, stdinreadcb, NULL, stdineventcb, &c);
 
-    c.sslinevent = lew_ssl_extract_bev(essl);
+    c.sslinevent = lew_ssl_reconnect(essl);
     bufferevent_setcb(c.sslinevent, sslinreadcb, NULL, sslineventcb, &c);
 
     c.ssloutbuffer = bufferevent_get_output(c.sslinevent);

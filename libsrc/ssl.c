@@ -37,6 +37,7 @@ struct lew_ssl {
 
     void *userptr;
     struct evdns_base *dns_base;
+    struct event_base *base;
 };
 
 static int ex_data_index;
@@ -92,31 +93,7 @@ static void ssl_dns_callback(int errcode, struct evutil_addrinfo *addr, void *pt
 
     evdns_base_free(essl->dns_base, 0);
     essl->dns_base = NULL;
-}
-
-void lew_ssl_connect(lew_ssl_t *essl)
-{
-    if (essl->state != SSL_STATE_PREPARING) {
-        return;
-    }
-
-    essl->state = SSL_STATE_CONNECTING;
-
-    // spawn dns-lookup
-    essl->dns_base = evdns_base_new(bufferevent_get_base(essl->bev), EVDNS_BASE_INITIALIZE_NAMESERVERS);
-
-    struct evutil_addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_flags = EVUTIL_AI_CANONNAME;
-    /* Unless we specify a socktype, we'll get at least two entries for
-     * each address: one for TCP and one for UDP. That's not what we
-     * want. */
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-
-    evdns_getaddrinfo(essl->dns_base, essl->hostname, NULL,
-                      &hints, ssl_dns_callback, essl);
+    essl->bev = NULL;
 }
 
 static bool default_ssl_info_handler(lew_ssl_t *essl, lew_ssl_error_t error)
@@ -199,18 +176,33 @@ void handle_opensll_error(const SSL *ssl, int type, int val)
 
 struct bufferevent *lew_ssl_reconnect(lew_ssl_t *essl)
 {
-    struct event_base *base = bufferevent_get_base(essl->bev);
+    if (essl->bev) {
+        return NULL;
+    }
 
-    bufferevent_free(essl->bev);
-
-    essl->bev = bufferevent_openssl_socket_new(base, -1, essl->ssl,
+    essl->bev = bufferevent_openssl_socket_new(essl->base, -1, essl->ssl,
                 BUFFEREVENT_SSL_CONNECTING,
                 BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS);
 
     bufferevent_openssl_set_allow_dirty_shutdown(essl->bev, 1);
 
-    essl->state = SSL_STATE_PREPARING;
-    lew_ssl_connect(essl);
+    essl->state = SSL_STATE_CONNECTING;
+
+    // spawn dns-lookup
+    essl->dns_base = evdns_base_new(essl->base, EVDNS_BASE_INITIALIZE_NAMESERVERS);
+
+    struct evutil_addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_flags = EVUTIL_AI_CANONNAME;
+    /* Unless we specify a socktype, we'll get at least two entries for
+     * each address: one for TCP and one for UDP. That's not what we
+     * want. */
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    evdns_getaddrinfo(essl->dns_base, essl->hostname, NULL,
+                      &hints, ssl_dns_callback, essl);
 
     return essl->bev;
 }
@@ -227,6 +219,7 @@ lew_ssl_t *lew_ssl_create(
     lew_ssl_lib_init();
 
     lew_ssl_t *res = malloc(sizeof(lew_ssl_t));
+    res->base = base;
     res->errorlen = 0;
     res->state = SSL_STATE_PREPARING;
 
@@ -300,12 +293,6 @@ lew_ssl_t *lew_ssl_create(
     // Set hostname for SNI extension
     SSL_set_tlsext_host_name(res->ssl, res->hostname);
 #endif
-
-    res->bev = bufferevent_openssl_socket_new(base, -1, res->ssl,
-               BUFFEREVENT_SSL_CONNECTING,
-               BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS);
-
-    bufferevent_openssl_set_allow_dirty_shutdown(res->bev, 1);
 
 end:
     return res;
@@ -384,11 +371,6 @@ leave:
     return 0;
 }
 
-struct bufferevent *lew_ssl_extract_bev(lew_ssl_t *essl)
-{
-    return essl->bev;
-}
-
 static bool lew_ssl_call_errorcb(lew_ssl_t *essl, lew_ssl_error_t error)
 {
     // TODO is this smart or not?
@@ -413,10 +395,6 @@ void lew_ssl_connection_cleanup(lew_ssl_t *essl)
 
     if (essl->dns_base) {
         evdns_base_free(essl->dns_base, 0);
-    }
-
-    if (essl->bev) {
-        bufferevent_free(essl->bev);
     }
 
     /*

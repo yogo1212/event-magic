@@ -41,11 +41,8 @@ void lew_ssl_set_info_cb(lew_ssl_t *essl, lew_ssl_info_cb_t infocb);
 
 char *lew_ssl_get_error(lew_ssl_t *essl);
 
-void lew_ssl_connect(lew_ssl_t *essl);
-
 struct bufferevent *lew_ssl_reconnect(lew_ssl_t *essl);
 
-struct bufferevent *lew_ssl_extract_bev(lew_ssl_t *essl);
 const char *lew_ssl_get_hostname(lew_ssl_t *essl);
 unsigned short lew_ssl_get_port(lew_ssl_t *essl);
 void *lew_ssl_get_userdata(lew_ssl_t *essl);
