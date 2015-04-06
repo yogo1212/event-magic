@@ -7,7 +7,6 @@
 
 #include "mqtt_proto.h"
 
-
 const char *mqtt_connack_code_str(enum MQTT_CONNACK_CODE code)
 {
     char *res = "UNKNOWN_CONACK_VALUE";

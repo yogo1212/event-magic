@@ -35,8 +35,8 @@ enum MQTT_MESSAGE_TYPE {
 };
 
 typedef struct {
+    uint8_t msg_type, qos;
     bool retain, dup;
-    uint8_t qos, msg_type;
 } mqtt_proto_header_t;
 
 void mqtt_read_header(void **buf, mqtt_proto_header_t *hdr);
