@@ -9,8 +9,8 @@
 #include <event2/event.h>
 #include <event2/buffer.h>
 
-#include <mqtt.h>
-#include <ssl.h>
+#include "mqtt.h"
+#include "ssl.h"
 
 struct event_base *base;
 struct event *sig_event;
@@ -72,9 +72,9 @@ void mqtt_msgcb(mqtt_session_t *conn, const char *topic, void *message, size_t l
     printf("%.*s\n", (int) len, (char *) message);
 }
 
-void mqtt_errorcb(mqtt_session_t *conn, enum mqtt_session_error err)
+void mqtt_errorcb(mqtt_session_t *conn, enum mqtt_session_error err, char *errormsg)
 {
-    fprintf(stderr, "mqtt-error %d: %s\n", err, mqtt_session_last_error(conn));
+    fprintf(stderr, "mqtt-error %d: %s\n", err, errormsg);
     sub_config_t *cfg = mqtt_session_userdata(conn);
     if (cfg->reconnect)
         mqtt_session_reconnect(conn, true);

@@ -106,9 +106,18 @@ static void add_retransmission(mqtt_session_t *mc, struct evbuffer *evb, uint16_
     evbuffer_copyout(evb, evbbuf, evblen);
     mqtt_retransmission_t *r = mqtt_retransmission_new(mc, evbbuf, evblen, mid);
     mqtt_retransmission_t *tmp;
-    HASH_REPLACE(hh, mc->active_transmissions, mid, sizeof(r->mid), r, tmp);
+    HASH_REPLACE(hh, mc->active_transmissions, mid, sizeof(mid), r, tmp);
     if (tmp != NULL) {
         mqtt_retransmission_free(tmp);
+    }
+}
+
+static void delete_retransmission(mqtt_session_t *mc, uint16_t mid)
+{
+    mqtt_retransmission_t *r;
+    HASH_FIND(hh, mc->active_transmissions, &mid, sizeof(mid), r);
+    if (r != NULL) {
+        mqtt_retransmission_free(r);
     }
 }
 
@@ -121,7 +130,7 @@ static void call_error_cb(mqtt_session_t *mc, enum mqtt_session_error err, const
         mc->state = MQTT_STATE_ERROR;
     }
 
-    if (MQTT_SESSION_OPT_AUTORECONNECT) {
+    if (MQTT_SESSION_OPT_AUTORECONNECT && (err != MQTT_ERROR_HARD)) {
         mqtt_session_reconnect(mc, mc->data.clean_session);
         return;
     }
@@ -336,7 +345,7 @@ static void mqtt_send_pubrec(mqtt_session_t *mc, uint16_t mid)
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
     void *bufpnt = buf;
     
-    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBREC, 1, false, false };
+    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBREC, 2, false, false };
     mqtt_write_header(&bufpnt, &hdr, sizeof(uint16_t));
     mqtt_write_uint16(&bufpnt, mid);
 
@@ -350,7 +359,7 @@ static void mqtt_send_pubrel(mqtt_session_t *mc, uint16_t mid)
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
     void *bufpnt = buf;
     
-    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBREL, 1, false, false };
+    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBREL, 2, false, false };
     mqtt_write_header(&bufpnt, &hdr, sizeof(uint16_t));
     mqtt_write_uint16(&bufpnt, mid);
 
@@ -364,13 +373,51 @@ static void mqtt_send_pubcomp(mqtt_session_t *mc, uint16_t mid)
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
     void *bufpnt = buf;
     
-    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBCOMP, 1, false, false };
+    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBCOMP, 2, false, false };
     mqtt_write_header(&bufpnt, &hdr, sizeof(uint16_t));
     mqtt_write_uint16(&bufpnt, mid);
 
     bufferevent_write(mc->bev, buf, (uintptr_t) bufpnt - (uintptr_t) buf);
 
     call_debug_cb(mc, "sending pubcomp");
+}
+
+static void handle_connack(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *buf, size_t len)
+{
+    (void) hdr;
+    (void) len;
+    
+    mqtt_connack_data_t data;
+    mqtt_read_connack_data(&buf, &data);
+    
+    if (data.return_code != MQTT_CONNACK_ACCEPTED) {
+        call_error_cb(mc, MQTT_ERROR_CONNECT, mqtt_connack_code_str(data.return_code));
+        mc->state = MQTT_STATE_ERROR;
+        return;
+    }
+    
+    mc->state = MQTT_STATE_CONNECTED;
+    mc->awaiting_ping = false;
+    
+    struct timeval interval = { mc->data.keep_alive, 0 };
+    event_add(mc->timeout_evt, &interval);
+    
+    if (mc->event_cb) {
+        mc->event_cb(mc, MQTT_EVENT_CONNECTED);
+    }
+    
+    call_debug_cb(mc, "received connack");
+}
+
+static void handle_pingresp(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *buf, size_t len)
+{
+    (void) hdr;
+    (void) buf;
+    (void) len;
+    
+    mc->awaiting_ping = false;
+    
+    call_debug_cb(mc, "received pingresp");
 }
 
 static void handle_publish(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *buf, size_t len)
@@ -407,49 +454,17 @@ static void handle_publish(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *b
     call_debug_cb(mc, "received publish");
 }
 
-static void handle_connack(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *buf, size_t len)
-{
-    (void) hdr;
-    (void) len;
-
-    mqtt_connack_data_t data;
-    mqtt_read_connack_data(&buf, &data);
-
-    if (data.return_code != MQTT_CONNACK_ACCEPTED) {
-        call_error_cb(mc, MQTT_ERROR_CONNECT, mqtt_connack_code_str(data.return_code));
-        mc->state = MQTT_STATE_ERROR;
-        return;
-    }
-
-    mc->state = MQTT_STATE_CONNECTED;
-    mc->awaiting_ping = false;
-
-    struct timeval interval = { mc->data.keep_alive, 0 };
-    event_add(mc->timeout_evt, &interval);
-
-    if (mc->event_cb) {
-        mc->event_cb(mc, MQTT_EVENT_CONNECTED);
-    }
-
-    call_debug_cb(mc, "received connack");
-}
-
-static void handle_pingresp(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *buf, size_t len)
-{
-    (void) hdr;
-    (void) buf;
-    (void) len;
-
-    mc->awaiting_ping = false;
-
-    call_debug_cb(mc, "received pingresp");
-}
-
 static void handle_puback(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *buf, size_t len)
 {
     (void) hdr;
     (void) buf;
-    (void) len;
+    
+    uint16_t mid;
+    
+    mid = mqtt_read_uint16(&buf);
+    len -= 2;
+
+    //delete_retransmission(mc, mid);
 
     call_debug_cb(mc, "received puback");
 }
@@ -458,7 +473,13 @@ static void handle_suback(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *bu
 {
     (void) hdr;
     (void) buf;
-    (void) len;
+    
+    uint16_t mid;
+    
+    mid = mqtt_read_uint16(&buf);
+    len -= 2;
+    
+    delete_retransmission(mc, mid);
 
     call_debug_cb(mc, "received suback");
 }
@@ -745,10 +766,10 @@ void mqtt_session_connect(mqtt_session_t *mc, char *id, bool clean_session, uint
     }
 
     if (id) {
-        size_t len = strnlen(id, 23) + 1;
-        strncpy(mc->data.id.buf, id, len - 1);
-        mc->data.id.len = len;
-        ((char *) mc->data.id.buf)[len - 1] = '\0';
+        mc->data.id.len = strnlen(id, 23) + 1;
+        mc->data.id.buf = malloc(mc->data.id.len);
+        memcpy(mc->data.id.buf, id, mc->data.id.len);
+        ((char *) mc->data.id.buf)[mc->data.id.len - 1] = '\0';
     }
     else {
         // TODO
@@ -786,6 +807,10 @@ void mqtt_session_reconnect(mqtt_session_t* mc, bool clean_session)
         bufferevent_free(mc->bev);
 
     mc->bev = mc->conn_builder(mc->conn_state);
+    
+    if (!mc->bev) {
+        call_error_cb(mc, MQTT_ERROR_HARD, "got a NULL bufferevent");
+    }
 
     bufferevent_setwatermark(mc->bev, EV_READ, 2, 0);
     bufferevent_setcb(mc->bev, read_callback, NULL, event_callback, mc);

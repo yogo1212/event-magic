@@ -14,6 +14,7 @@ enum mqtt_session_error {
     MQTT_ERROR_NETWORK,
     MQTT_ERROR_CONNECT,
     MQTT_ERROR_STATE,
+    MQTT_ERROR_HARD,
     MQTT_ERROR_UNKNOWN
 };
 
