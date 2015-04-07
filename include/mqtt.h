@@ -56,7 +56,7 @@ void *mqtt_session_userdata(mqtt_session_t *mc);
  * @param topic a UTF-8 encoded topic-name
  * @return the message id used for sending. That is because currently logic for qos > 0 is not implemented.
  */
-uint16_t mqtt_session_pub(mqtt_session_t *mc, char *topic, const void *payload, size_t payloadlen, uint8_t qos, bool retain);
+void mqtt_session_pub(mqtt_session_t* mc, char* topic, const void* payload, size_t payloadlen, uint8_t qos, bool retain);
 
 /**
  * @param topic a UTF-8 encoded topic-name
