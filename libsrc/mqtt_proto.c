@@ -217,7 +217,7 @@ bool mqtt_write_connect_data(mqtt_connect_data_t *data, char **out, size_t *outl
         goto cleanup_id;
     }
 
-    if ((cid_len > 23) || (cid_len < 1)) {
+    if ((cid_len - 2 > 23) || (cid_len - 2 < 1)) {
         *out = malloc(cid_len + 512);
         *outlen = sprintf(*out, "id must be 1-23 UTF-8 characters long (%zu)", cid_len);
         res = false;

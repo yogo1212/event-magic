@@ -7,7 +7,7 @@
 #include "http.h"
 
 struct http_ssl_conn {
-    lew_ssl_t *essl;
+    lew_ssl_factory_t *essl;
     struct evhttp_connection *evhttpcon;
 };
 
@@ -19,14 +19,14 @@ void http_ssl_conn_cleanup(http_ssl_conn_t *sslconn)
     free(sslconn);
 }
 
-http_ssl_conn_t *http_ssl_setup(struct event_base *base, lew_ssl_t *essl)
+http_ssl_conn_t *http_ssl_setup(struct event_base *base, lew_ssl_factory_t *essl)
 {
     http_ssl_conn_t *res = malloc(sizeof(http_ssl_conn_t));
 
     res->essl = essl;
     // TODO blocking DNS!
     res->evhttpcon = evhttp_connection_base_bufferevent_new(base, NULL,
-                     lew_ssl_reconnect(essl),
+                     lew_ssl_connect(essl),
                      lew_ssl_get_hostname(essl),
                      lew_ssl_get_port(essl));
 

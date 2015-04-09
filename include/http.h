@@ -12,7 +12,7 @@
 struct http_ssl_conn;
 typedef struct http_ssl_conn http_ssl_conn_t;
 
-http_ssl_conn_t *http_ssl_setup(struct event_base *base, lew_ssl_t *essl);
+http_ssl_conn_t *http_ssl_setup(struct event_base *base, lew_ssl_factory_t *essl);
 
 typedef struct {
     struct evhttp_uri *http_uri;

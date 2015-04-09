@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    lew_ssl_t *essl = lew_ssl_create
+    lew_ssl_factory_t *essl = lew_ssl_create
                       (
                           base,
                           argv[1],
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 
     bufferevent_setcb(c.stdinevent, stdinreadcb, NULL, stdineventcb, &c);
 
-    c.sslinevent = lew_ssl_reconnect(essl);
+    c.sslinevent = lew_ssl_connect(essl);
     bufferevent_setcb(c.sslinevent, sslinreadcb, NULL, sslineventcb, &c);
 
     c.ssloutbuffer = bufferevent_get_output(c.sslinevent);

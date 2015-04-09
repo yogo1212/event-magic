@@ -18,9 +18,11 @@ enum LEW_SSL_STATE {
     SSL_STATE_ERROR
 };
 
-struct lew_ssl {
+struct lew_ssl_factory {
     char hostname[257];
     int port;
+    
+    bool dont_ssl;
 
     //TODO maybe heap is better w/ realloc
     char error[1024];
@@ -31,7 +33,6 @@ struct lew_ssl {
     lew_ssl_info_cb_t infocb;
 
     SSL_CTX *ssl_ctx;
-    SSL *ssl;
 
     struct bufferevent *bev;
 
@@ -42,29 +43,33 @@ struct lew_ssl {
 
 static int ex_data_index;
 
-const char *lew_ssl_get_hostname(lew_ssl_t *essl)
+const char *lew_ssl_get_hostname(lew_ssl_factory_t *essl)
 {
     return essl->hostname;
 }
 
-unsigned short lew_ssl_get_port(lew_ssl_t *essl)
+unsigned short lew_ssl_get_port(lew_ssl_factory_t *essl)
 {
     return essl->port;
 }
 
-void lew_ssl_set_info_cb(lew_ssl_t *essl, lew_ssl_info_cb_t infocb)
+void lew_ssl_set_info_cb(lew_ssl_factory_t *essl, lew_ssl_info_cb_t infocb)
 {
     essl->infocb = infocb;
 }
 
+void lew_ssl_dont_really_ssl(lew_ssl_factory_t *essl)
+{
+    essl->dont_ssl = true;
+}
 
-static void lew_ssl_collectSSLerr(lew_ssl_t *essl, const char *prefix);
-static bool lew_ssl_call_errorcb(lew_ssl_t *essl, lew_ssl_error_t error);
+static void lew_ssl_collectSSLerr(lew_ssl_factory_t *essl, const char *prefix);
+static bool lew_ssl_call_errorcb(lew_ssl_factory_t *essl, lew_ssl_error_t error);
 static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg);
 
 static void ssl_dns_callback(int errcode, struct evutil_addrinfo *addr, void *ptr)
 {
-    lew_ssl_t *essl = ptr;
+    lew_ssl_factory_t *essl = ptr;
 
     if (errcode) {
         essl->errorlen = snprintf(essl->error, sizeof(essl->error), "couldn't resolve");
@@ -86,7 +91,7 @@ static void ssl_dns_callback(int errcode, struct evutil_addrinfo *addr, void *pt
 
         //add the port and - voila
         bufferevent_socket_connect(essl->bev, addr->ai_addr, addr->ai_addrlen);
-    end:
+end:
         evutil_freeaddrinfo(addr);
         essl->state = SSL_STATE_CONNECTED;
     }
@@ -96,7 +101,7 @@ static void ssl_dns_callback(int errcode, struct evutil_addrinfo *addr, void *pt
     essl->bev = NULL;
 }
 
-static bool default_ssl_info_handler(lew_ssl_t *essl, lew_ssl_error_t error)
+static bool default_ssl_info_handler(lew_ssl_factory_t *essl, lew_ssl_error_t error)
 {
     fprintf(stderr, "ERROR: ");
 
@@ -116,7 +121,7 @@ static bool default_ssl_info_handler(lew_ssl_t *essl, lew_ssl_error_t error)
 
 void handle_opensll_error(const SSL *ssl, int type, int val)
 {
-    lew_ssl_t *essl = SSL_get_ex_data(ssl, ex_data_index);
+    lew_ssl_factory_t *essl = SSL_get_ex_data(ssl, ex_data_index);
 
     if (!essl->infocb) {
         return;
@@ -174,17 +179,40 @@ void handle_opensll_error(const SSL *ssl, int type, int val)
     }
 }
 
-struct bufferevent *lew_ssl_reconnect(lew_ssl_t *essl)
+struct bufferevent *lew_ssl_connect(lew_ssl_factory_t *essl)
 {
     if (essl->bev) {
         return NULL;
     }
 
-    essl->bev = bufferevent_openssl_socket_new(essl->base, -1, essl->ssl,
-                BUFFEREVENT_SSL_CONNECTING,
-                BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS);
+    if (essl->dont_ssl) {
+        essl->bev = bufferevent_socket_new(essl->base, -1, BEV_OPT_CLOSE_ON_FREE);
+    }
+    else {
+        SSL *ssl;
+        ssl = SSL_new(essl->ssl_ctx);
 
-    bufferevent_openssl_set_allow_dirty_shutdown(essl->bev, 1);
+        if (ssl == NULL) {
+            lew_ssl_collectSSLerr(essl, "SSL_new");
+
+            if (lew_ssl_call_errorcb(essl, SSL_ERROR_INIT)) {
+                return NULL;
+            }
+        }
+
+        SSL_set_ex_data(ssl, ex_data_index, essl);
+
+    #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+        // Set hostname for SNI extension
+        SSL_set_tlsext_host_name(ssl, essl->hostname);
+    #endif
+
+        essl->bev = bufferevent_openssl_socket_new(essl->base, -1, ssl,
+                    BUFFEREVENT_SSL_CONNECTING,
+                    BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS);
+
+        bufferevent_openssl_set_allow_dirty_shutdown(essl->bev, 1);
+    }
 
     essl->state = SSL_STATE_CONNECTING;
 
@@ -207,7 +235,7 @@ struct bufferevent *lew_ssl_reconnect(lew_ssl_t *essl)
     return essl->bev;
 }
 
-lew_ssl_t *lew_ssl_create(
+lew_ssl_factory_t *lew_ssl_create(
     struct event_base *base,
     const char *hostname,
     const int port,
@@ -218,10 +246,11 @@ lew_ssl_t *lew_ssl_create(
 {
     lew_ssl_lib_init();
 
-    lew_ssl_t *res = malloc(sizeof(lew_ssl_t));
+    lew_ssl_factory_t *res = malloc(sizeof(lew_ssl_factory_t));
     res->base = base;
     res->errorlen = 0;
     res->state = SSL_STATE_PREPARING;
+    res->dont_ssl = false;
 
     if (errorcb) {
         res->errorcb = errorcb;
@@ -235,7 +264,6 @@ lew_ssl_t *lew_ssl_create(
     strncpy(res->hostname, hostname, sizeof(res->hostname));
     res->port = port;
 
-    res->ssl = NULL;
     res->ssl_ctx = NULL;
     res->bev = NULL;
     res->userptr = userptr;
@@ -276,31 +304,13 @@ lew_ssl_t *lew_ssl_create(
 
     SSL_CTX_set_info_callback(res->ssl_ctx, handle_opensll_error);
 
-    res->ssl = SSL_new(res->ssl_ctx);
-
-    if (res->ssl == NULL) {
-        lew_ssl_collectSSLerr(res, "SSL_new");
-
-        if (lew_ssl_call_errorcb(res, SSL_ERROR_INIT)) {
-            res = NULL;
-            goto end;
-        }
-    }
-
-    SSL_set_ex_data(res->ssl, ex_data_index, res);
-
-#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
-    // Set hostname for SNI extension
-    SSL_set_tlsext_host_name(res->ssl, res->hostname);
-#endif
-
 end:
     return res;
 }
 
 static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
 {
-    lew_ssl_t *essl = (lew_ssl_t *) arg;
+    lew_ssl_factory_t *essl = (lew_ssl_factory_t *) arg;
     HostnameValidationResult res = Error;
 
     int ok_so_far = 0;
@@ -319,28 +329,28 @@ static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
     res = validate_hostname(essl->hostname, server_cert);
 
     switch (res) {
-        case MatchFound:
-            break;
+    case MatchFound:
+        break;
 
-        case MatchNotFound:
-            res_str = "MatchNotFound";
-            break;
+    case MatchNotFound:
+        res_str = "MatchNotFound";
+        break;
 
-        case NoSANPresent:
-            res_str = "NoSANPresent";
-            break;
+    case NoSANPresent:
+        res_str = "NoSANPresent";
+        break;
 
-        case MalformedCertificate:
-            res_str = "MalformedCertificate";
-            break;
+    case MalformedCertificate:
+        res_str = "MalformedCertificate";
+        break;
 
-        case Error:
-            res_str = "Error";
-            break;
+    case Error:
+        res_str = "Error";
+        break;
 
-        default:
-            res_str = "WTF!";
-            break;
+    default:
+        res_str = "WTF!";
+        break;
     }
 
 
@@ -371,7 +381,7 @@ leave:
     return 0;
 }
 
-static bool lew_ssl_call_errorcb(lew_ssl_t *essl, lew_ssl_error_t error)
+static bool lew_ssl_call_errorcb(lew_ssl_factory_t *essl, lew_ssl_error_t error)
 {
     // TODO is this smart or not?
     bool res = true;
@@ -387,7 +397,7 @@ static bool lew_ssl_call_errorcb(lew_ssl_t *essl, lew_ssl_error_t error)
     return res;
 }
 
-void lew_ssl_connection_cleanup(lew_ssl_t *essl)
+void lew_ssl_connection_cleanup(lew_ssl_factory_t *essl)
 {
     if (!essl) {
         return;
@@ -416,7 +426,7 @@ void lew_ssl_connection_cleanup(lew_ssl_t *essl)
 
 static int libevent_ssl_SSL_error_cb(const char *str, size_t len, void *u)
 {
-    lew_ssl_t *essl = (lew_ssl_t *) u;
+    lew_ssl_factory_t *essl = (lew_ssl_factory_t *) u;
 
     if ((essl->errorlen + len) >= sizeof(essl->error)) {
         len = sizeof(essl->error) - essl->errorlen - 1;
@@ -430,7 +440,7 @@ static int libevent_ssl_SSL_error_cb(const char *str, size_t len, void *u)
     return len;
 }
 
-static void lew_ssl_collectSSLerr(lew_ssl_t *essl, const char *prefix)
+static void lew_ssl_collectSSLerr(lew_ssl_factory_t *essl, const char *prefix)
 {
     if (essl->errorlen >= strlen(prefix)) {
         essl->errorlen = sizeof(essl->error) - 1;
@@ -447,12 +457,12 @@ static void lew_ssl_collectSSLerr(lew_ssl_t *essl, const char *prefix)
     essl->error[essl->errorlen] = '\0';
 }
 
-void *lew_ssl_get_userdata(lew_ssl_t *essl)
+void *lew_ssl_get_userdata(lew_ssl_factory_t *essl)
 {
     return essl->userptr;
 }
 
-char *lew_ssl_get_error(lew_ssl_t *essl)
+char *lew_ssl_get_error(lew_ssl_factory_t *essl)
 {
 #if 0
     int errcode = EVUTIL_SOCKET_ERROR();

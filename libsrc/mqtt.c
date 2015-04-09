@@ -49,7 +49,7 @@ struct mqtt_retransmission {
     struct event *evt;
     struct timeval tvl;
     mqtt_session_t *session;
-    
+
     UT_hash_handle hh;
 };
 
@@ -58,10 +58,10 @@ static void retransmission_timeout(int fd, short evt, void *arg)
     (void) fd;
     (void) evt;
     mqtt_retransmission_t *r = arg;
-    
-    if (r->session->bev)
+
+    if (r->session->state == MQTT_STATE_CONNECTED)
         bufferevent_write(r->session->bev, r->buffer, r->len);
-    
+
     r->tvl.tv_sec = r->tvl.tv_sec + 1;
     if (r->tvl.tv_sec >= 12)
         r->tvl.tv_sec = 1;
@@ -70,32 +70,32 @@ static void retransmission_timeout(int fd, short evt, void *arg)
 
 static mqtt_retransmission_t *mqtt_retransmission_new(mqtt_session_t *session, void *data, size_t datalen, uint16_t mid) {
     mqtt_retransmission_t *res = malloc(sizeof(mqtt_retransmission_t));
-    
+
     res->session = session;
-    
+
     res->len = datalen;
     res->buffer = malloc(datalen);
     memcpy(res->buffer, data, datalen);
-    
+
     res->evt = event_new(session->base, -1, EV_TIMEOUT, retransmission_timeout, res);
     res->tvl.tv_usec = 0;
     res->tvl.tv_sec = 0;
-    
+
     res->mid = mid;
-    
+
     event_add(res->evt, &res->tvl);
-    
+
     // set the dup-flag
     uint8_t *cpyptr = res->buffer;
     *cpyptr |= ((1 << 3) & 0x8);
-    
+
     return res;
 }
 
 static void mqtt_retransmission_free(mqtt_retransmission_t *r) {
     free(r->buffer);
     event_free(r->evt);
-    
+
     free(r);
 }
 
@@ -121,6 +121,16 @@ static void delete_retransmission(mqtt_session_t *mc, uint16_t mid)
     }
 }
 
+static void _mqtt_session_reconnect(int fd, short events, void *arg)
+{
+    (void) fd;
+    (void) events;
+
+    mqtt_session_t *mc = arg;
+
+    mqtt_session_reconnect(mc, mc->data.clean_session);
+}
+
 static void call_error_cb(mqtt_session_t *mc, enum mqtt_session_error err, const char *errstr)
 {
     if (mc->state == MQTT_STATE_CONNECTED) {
@@ -130,8 +140,9 @@ static void call_error_cb(mqtt_session_t *mc, enum mqtt_session_error err, const
         mc->state = MQTT_STATE_ERROR;
     }
 
-    if (MQTT_SESSION_OPT_AUTORECONNECT && (err != MQTT_ERROR_HARD)) {
-        mqtt_session_reconnect(mc, mc->data.clean_session);
+    if ((mc->options & MQTT_SESSION_OPT_AUTORECONNECT) && (err != MQTT_ERROR_HARD && err != MQTT_ERROR_CONNECT)) {
+        struct timeval tvl = { 1, 0 };
+        event_base_once(mc->base, -1, EV_TIMEOUT, _mqtt_session_reconnect, mc, &tvl);
         return;
     }
 
@@ -152,11 +163,6 @@ static void call_debug_cb(mqtt_session_t *mc, const char *msg)
 
 static void mqtt_send_connect(mqtt_session_t *mc)
 {
-    uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
-    void *bufpnt = buf;
-    
-    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_CONNECT, 0, false, false };
-
     char *databuf;
     size_t datalen;
 
@@ -165,6 +171,11 @@ static void mqtt_send_connect(mqtt_session_t *mc)
         free(databuf);
         return;
     }
+
+    uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
+    void *bufpnt = buf;
+
+    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_CONNECT, 0, false, false };
 
     mqtt_write_header(&bufpnt, &hdr, datalen);
     bufferevent_write(mc->bev, buf, (uintptr_t) bufpnt - (uintptr_t) buf);
@@ -179,7 +190,7 @@ static void mqtt_send_pingreq(mqtt_session_t *mc)
 {
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE];
     void *bufpnt = buf;
-    
+
     mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PINGREQ, 0, false, false };
     mqtt_write_header(&bufpnt, &hdr, 0);
 
@@ -194,7 +205,7 @@ static void mqtt_send_disconnect(mqtt_session_t *mc)
 {
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE];
     void *bufpnt = buf;
-    
+
     mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_DISCONNECT, 0, false, false };
     mqtt_write_header(&bufpnt, &hdr, 0);
 
@@ -235,9 +246,9 @@ static void mqtt_send_subscribe(mqtt_session_t *mc, char *topic, uint8_t qos, ui
     evbuffer_add(evb, &midbuf, sizeof(midbuf));
     evbuffer_add(evb, bufcpy, bufsize);
     evbuffer_add(evb, &qos, sizeof(qos));
-    
+
     add_retransmission(mc, evb, mid);
-    
+
     bufferevent_write_buffer(mc->bev, evb);
 
     call_debug_cb(mc, "sending subscribe");
@@ -267,7 +278,7 @@ static uint16_t mqtt_send_unsubscribe(mqtt_session_t *mc, char *topic, uint16_t 
     uint8_t hdrbuf[MQTT_MAX_FIXED_HEADER_SIZE];
     void *hdrbufpnt = hdrbuf;
 
-    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_SUBSCRIBE, 1, false, false };
+    mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_UNSUBSCRIBE, 1, false, false };
     mqtt_write_header(&hdrbufpnt, &hdr, bufsize + sizeof(midbuf));
 
     struct evbuffer *evb = evbuffer_new();
@@ -318,11 +329,11 @@ static void mqtt_send_publish(mqtt_session_t *mc, char *topic, const void *data,
     if (qos > 0) {
         add_retransmission(mc, evb, mid);
     }
-    
+
     bufferevent_write_buffer(mc->bev, evb);
 
     call_debug_cb(mc, "sending publish");
-    
+
     evbuffer_free(evb);
 }
 
@@ -330,7 +341,7 @@ static void mqtt_send_puback(mqtt_session_t *mc, uint16_t mid)
 {
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
     void *bufpnt = buf;
-    
+
     mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBACK, 1, false, false };
     mqtt_write_header(&bufpnt, &hdr, sizeof(uint16_t));
     mqtt_write_uint16(&bufpnt, mid);
@@ -344,7 +355,7 @@ static void mqtt_send_pubrec(mqtt_session_t *mc, uint16_t mid)
 {
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
     void *bufpnt = buf;
-    
+
     mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBREC, 2, false, false };
     mqtt_write_header(&bufpnt, &hdr, sizeof(uint16_t));
     mqtt_write_uint16(&bufpnt, mid);
@@ -358,7 +369,7 @@ static void mqtt_send_pubrel(mqtt_session_t *mc, uint16_t mid)
 {
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
     void *bufpnt = buf;
-    
+
     mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBREL, 2, false, false };
     mqtt_write_header(&bufpnt, &hdr, sizeof(uint16_t));
     mqtt_write_uint16(&bufpnt, mid);
@@ -372,7 +383,7 @@ static void mqtt_send_pubcomp(mqtt_session_t *mc, uint16_t mid)
 {
     uint8_t buf[MQTT_MAX_FIXED_HEADER_SIZE + 2];
     void *bufpnt = buf;
-    
+
     mqtt_proto_header_t hdr = { MQTT_MESSAGE_TYPE_PUBCOMP, 2, false, false };
     mqtt_write_header(&bufpnt, &hdr, sizeof(uint16_t));
     mqtt_write_uint16(&bufpnt, mid);
@@ -386,26 +397,26 @@ static void handle_connack(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *b
 {
     (void) hdr;
     (void) len;
-    
+
     mqtt_connack_data_t data;
     mqtt_read_connack_data(&buf, &data);
-    
+
     if (data.return_code != MQTT_CONNACK_ACCEPTED) {
         call_error_cb(mc, MQTT_ERROR_CONNECT, mqtt_connack_code_str(data.return_code));
         mc->state = MQTT_STATE_ERROR;
         return;
     }
-    
+
     mc->state = MQTT_STATE_CONNECTED;
     mc->awaiting_ping = false;
-    
+
     struct timeval interval = { mc->data.keep_alive, 0 };
     event_add(mc->timeout_evt, &interval);
-    
+
     if (mc->event_cb) {
         mc->event_cb(mc, MQTT_EVENT_CONNECTED);
     }
-    
+
     call_debug_cb(mc, "received connack");
 }
 
@@ -414,9 +425,9 @@ static void handle_pingresp(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *
     (void) hdr;
     (void) buf;
     (void) len;
-    
+
     mc->awaiting_ping = false;
-    
+
     call_debug_cb(mc, "received pingresp");
 }
 
@@ -458,13 +469,13 @@ static void handle_puback(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *bu
 {
     (void) hdr;
     (void) buf;
-    
+
     uint16_t mid;
-    
+
     mid = mqtt_read_uint16(&buf);
     len -= 2;
 
-    //delete_retransmission(mc, mid);
+    delete_retransmission(mc, mid);
 
     call_debug_cb(mc, "received puback");
 }
@@ -473,12 +484,12 @@ static void handle_suback(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *bu
 {
     (void) hdr;
     (void) buf;
-    
+
     uint16_t mid;
-    
+
     mid = mqtt_read_uint16(&buf);
     len -= 2;
-    
+
     delete_retransmission(mc, mid);
 
     call_debug_cb(mc, "received suback");
@@ -502,26 +513,26 @@ static void mqtt_timeout(evutil_socket_t fd, short events, void *arg)
 
     // TODO
     switch (mc->state) {
-        case MQTT_STATE_CONNECTING:
-            call_error_cb(mc, MQTT_ERROR_NETWORK, "timeout waiting for CONACK");
-            break;
+    case MQTT_STATE_CONNECTING:
+        call_error_cb(mc, MQTT_ERROR_NETWORK, "timeout waiting for CONACK");
+        break;
 
-        case MQTT_STATE_CONNECTED:
-            if (mc->awaiting_ping) {
-                goto timeout;
-            }
+    case MQTT_STATE_CONNECTED:
+        if (mc->awaiting_ping) {
+            goto timeout;
+        }
 
-            mqtt_send_pingreq(mc);
-            mc->awaiting_ping = true;
-            break;
+        mqtt_send_pingreq(mc);
+        mc->awaiting_ping = true;
+        break;
 
-        case MQTT_STATE_DISCONNECTING:
-            mqtt_session_disconnect(mc);
-            break;
+    case MQTT_STATE_DISCONNECTING:
+        mqtt_session_disconnect(mc);
+        break;
 
-        default:
-            event_del(mc->timeout_evt);
-            call_error_cb(mc, MQTT_ERROR_UNKNOWN, "checking for timout in unkown state!");
+    default:
+        event_del(mc->timeout_evt);
+        call_error_cb(mc, MQTT_ERROR_UNKNOWN, "checking for timout in unkown state!");
     }
 
     return;
@@ -731,11 +742,11 @@ mqtt_session_t *mqtt_session_create(struct event_base* base, uint8_t options, mq
     res->event_cb = NULL;
     res->debug_cb = NULL;
     res->msg_cb = NULL;
-    
+
     res->bev = NULL;
-    
+
     res->next_mid = 0;
-    
+
     res->active_transmissions = NULL;
 
     return res;
@@ -807,7 +818,7 @@ void mqtt_session_reconnect(mqtt_session_t* mc, bool clean_session)
         bufferevent_free(mc->bev);
 
     mc->bev = mc->conn_builder(mc->conn_state);
-    
+
     if (!mc->bev) {
         call_error_cb(mc, MQTT_ERROR_HARD, "got a NULL bufferevent");
     }
@@ -866,13 +877,13 @@ void mqtt_session_cleanup(mqtt_session_t *mc)
 {
     {
         mqtt_retransmission_t *r, *tmp;
-    
+
         HASH_ITER(hh, mc->active_transmissions, r, tmp) {
             HASH_DEL(mc->active_transmissions, r);
             mqtt_retransmission_free(r);
         }
     }
-    
+
     if (mc->bev)
         bufferevent_free(mc->bev);
 

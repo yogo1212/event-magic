@@ -18,7 +18,7 @@
 #define TEST_CA_PATH NULL//"/etc/ssl/certs/"
 
 
-const char *example_configure_ssl_ctx(lew_ssl_t *essl, SSL_CTX *ssl_ctx)
+const char *example_configure_ssl_ctx(lew_ssl_factory_t *essl, SSL_CTX *ssl_ctx)
 {
     (void) essl;
 
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
         goto base_cleanup;
     }
 
-    lew_ssl_t *essl = lew_ssl_create
+    lew_ssl_factory_t *essl = lew_ssl_create
                       (
                           base,
                           hrd->host,

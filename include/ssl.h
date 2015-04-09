@@ -9,8 +9,8 @@
 #include <event2/bufferevent.h>
 
 
-struct lew_ssl;
-typedef struct lew_ssl lew_ssl_t;
+struct lew_ssl_factory;
+typedef struct lew_ssl_factory lew_ssl_factory_t;
 
 typedef enum {
     // errorstr
@@ -22,11 +22,11 @@ typedef enum {
 } lew_ssl_error_t;
 
 /* Return true if you want the library to free the struct. Return false if you want to do that yourself later */
-typedef bool (*lew_ssl_error_cb_t)(lew_ssl_t *essl, lew_ssl_error_t error);
+typedef bool (*lew_ssl_error_cb_t)(lew_ssl_factory_t *essl, lew_ssl_error_t error);
 /* Return NULL if everything went ok or a string containing an error */
-typedef const char *(*lew_ssl_ssl_ctx_config)(lew_ssl_t *essl, SSL_CTX *ssl_ctx);
+typedef const char *(*lew_ssl_ssl_ctx_config)(lew_ssl_factory_t *essl, SSL_CTX *ssl_ctx);
 
-lew_ssl_t *lew_ssl_create(
+lew_ssl_factory_t *lew_ssl_create(
     struct event_base *base,
     const char *hostname,
     const int port,
@@ -34,18 +34,19 @@ lew_ssl_t *lew_ssl_create(
     lew_ssl_ssl_ctx_config configcb,
     lew_ssl_error_cb_t errorcb
 );
-void lew_ssl_connection_cleanup(lew_ssl_t *essl);
+void lew_ssl_connection_cleanup(lew_ssl_factory_t *essl);
 
-typedef void (*lew_ssl_info_cb_t)(lew_ssl_t *ess, char *msg, size_t msglen);
-void lew_ssl_set_info_cb(lew_ssl_t *essl, lew_ssl_info_cb_t infocb);
+typedef void (*lew_ssl_info_cb_t)(lew_ssl_factory_t *ess, char *msg, size_t msglen);
+void lew_ssl_set_info_cb(lew_ssl_factory_t *essl, lew_ssl_info_cb_t infocb);
 
-char *lew_ssl_get_error(lew_ssl_t *essl);
+char *lew_ssl_get_error(lew_ssl_factory_t *essl);
+void lew_ssl_dont_really_ssl(lew_ssl_factory_t *essl);
 
-struct bufferevent *lew_ssl_reconnect(lew_ssl_t *essl);
+struct bufferevent *lew_ssl_connect(lew_ssl_factory_t *essl);
 
-const char *lew_ssl_get_hostname(lew_ssl_t *essl);
-unsigned short lew_ssl_get_port(lew_ssl_t *essl);
-void *lew_ssl_get_userdata(lew_ssl_t *essl);
+const char *lew_ssl_get_hostname(lew_ssl_factory_t *essl);
+unsigned short lew_ssl_get_port(lew_ssl_factory_t *essl);
+void *lew_ssl_get_userdata(lew_ssl_factory_t *essl);
 
 
 void lew_ssl_lib_init(void);

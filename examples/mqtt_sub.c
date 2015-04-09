@@ -15,7 +15,7 @@
 struct event_base *base;
 struct event *sig_event;
 
-bool ssl_errorcb(lew_ssl_t *essl, lew_ssl_error_t error)
+bool ssl_errorcb(lew_ssl_factory_t *essl, lew_ssl_error_t error)
 {
     fprintf(stderr, "ssl-error %d: %s\n", error, lew_ssl_get_error(essl));
 
@@ -32,10 +32,11 @@ typedef struct {
 typedef struct {
     bool verbose;
     bool reconnect;
+    bool ssl;
 } sub_config_t;
 
 /* Return NULL if everything went ok or a string containing an error */
-const char *ssl_configcb(lew_ssl_t *essl, SSL_CTX *ssl_ctx)
+const char *ssl_configcb(lew_ssl_factory_t *essl, SSL_CTX *ssl_ctx)
 {
     auth_data_t *data = lew_ssl_get_userdata(essl);
 
@@ -75,9 +76,6 @@ void mqtt_msgcb(mqtt_session_t *conn, const char *topic, void *message, size_t l
 void mqtt_errorcb(mqtt_session_t *conn, enum mqtt_session_error err, char *errormsg)
 {
     fprintf(stderr, "mqtt-error %d: %s\n", err, errormsg);
-    sub_config_t *cfg = mqtt_session_userdata(conn);
-    if (cfg->reconnect)
-        mqtt_session_reconnect(conn, true);
 }
 
 void handle_interrupt(int fd, short events, void *arg)
@@ -91,7 +89,7 @@ void handle_interrupt(int fd, short events, void *arg)
 
 void print_usage(void)
 {
-    fprintf(stderr, "Usage: [-a CA_FILE] [-k KEY_FILE] [-c CERT_FILE] -n(on-verbose) -h(elp) -r(econnect) -s REMOTE_HOST -p PORT -t TOPIC\n");
+    fprintf(stderr, "Usage: [-a CA_FILE] [-k KEY_FILE] [-c CERT_FILE] [-n(on-verbose)] [-(no-ss)l] [-h(elp)] [-r(econnect)] -s REMOTE_HOST -p PORT -t TOPIC\n");
 }
 
 int main(int argc, char *argv[])
@@ -107,11 +105,12 @@ int main(int argc, char *argv[])
 
     sub_config_t cfg;
     cfg.verbose = true;
+    cfg.ssl = true;
 
     {
         opterr = 0;
         int c;
-        while ((c = getopt (argc, argv, "a:k:c:s:p:t:nh")) != -1)
+        while ((c = getopt (argc, argv, "a:k:c:s:p:t:nlrh")) != -1)
         {
             switch (c)
             {
@@ -135,6 +134,12 @@ int main(int argc, char *argv[])
                 break;
             case 'n':
                 cfg.verbose = false;
+                break;
+            case 'r':
+                cfg.reconnect = true;
+                break;
+            case 'l':
+                cfg.ssl = false;
                 break;
             case 'h':
                 print_usage();
@@ -163,22 +168,27 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    lew_ssl_t *ssl = lew_ssl_create(
-                         base,
-                         server,
-                         port,
-                         &miau,
-                         ssl_configcb,
-                         ssl_errorcb
-                     );
+    lew_ssl_factory_t *ssl = lew_ssl_create(
+                                 base,
+                                 server,
+                                 port,
+                                 &miau,
+                                 ssl_configcb,
+                                 ssl_errorcb
+                             );
+
+
+    if (!cfg.ssl)
+        lew_ssl_dont_really_ssl(ssl);
 
     /* SSL is still not connected - but we can start writing to the bufferevent */
-    mqtt_session_t *mc = mqtt_session_create(base, MQTT_SESSION_OPT_AUTORECONNECT, mqtt_errorcb, &cfg);
-    
-    mqtt_session_setup(mc, lew_ssl_reconnect, ssl, mqtt_msgcb);
+    mqtt_session_t *mc = mqtt_session_create(base, cfg.reconnect ? MQTT_SESSION_OPT_AUTORECONNECT : 0, mqtt_errorcb, &cfg);
+
+    mqtt_session_setup(mc, lew_ssl_connect, ssl, mqtt_msgcb);
     mqtt_session_connect(mc, "event-driven-ssl-test", true, 10, NULL, NULL);
 
     mqtt_session_sub(mc, topic, 1);
+    mqtt_session_pub(mc, "/hallo", "miau", strlen("miau"), 1, false);
 
     sig_event = evsignal_new(base, SIGINT, handle_interrupt, mc);
     event_add(sig_event, NULL);
