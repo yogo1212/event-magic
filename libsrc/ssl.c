@@ -21,7 +21,7 @@ enum LEW_SSL_STATE {
 struct lew_ssl_factory {
     char hostname[257];
     int port;
-    
+
     bool dont_ssl;
 
     //TODO maybe heap is better w/ realloc
@@ -202,10 +202,10 @@ struct bufferevent *lew_ssl_connect(lew_ssl_factory_t *essl)
 
         SSL_set_ex_data(ssl, ex_data_index, essl);
 
-    #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
         // Set hostname for SNI extension
         SSL_set_tlsext_host_name(ssl, essl->hostname);
-    #endif
+#endif
 
         essl->bev = bufferevent_openssl_socket_new(essl->base, -1, ssl,
                     BUFFEREVENT_SSL_CONNECTING,
@@ -313,18 +313,17 @@ static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
     lew_ssl_factory_t *essl = (lew_ssl_factory_t *) arg;
     HostnameValidationResult res = Error;
 
-    int ok_so_far = 0;
+    X509 *server_cert = NULL;
+    server_cert = X509_STORE_CTX_get_current_cert(x509_ctx);
 
     const char *res_str = NULL;
+    int ok_so_far = 0;
 
     if ((ok_so_far = X509_verify_cert(x509_ctx)) <= 0) {
         res_str = X509_verify_cert_error_string(x509_ctx->error);
 
         goto leave;
     }
-
-    X509 *server_cert = NULL;
-    server_cert = X509_STORE_CTX_get_current_cert(x509_ctx);
 
     res = validate_hostname(essl->hostname, server_cert);
 
@@ -367,8 +366,13 @@ static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
 
     char cert_str[256];
 leave:
-    X509_NAME_oneline(X509_get_subject_name(server_cert), cert_str,
-                      sizeof(cert_str));
+    if (server_cert) {
+        X509_NAME_oneline(X509_get_subject_name(server_cert), cert_str,
+                          sizeof(cert_str));
+    }
+    else {
+        strncpy(cert_str, "NULL", sizeof(cert_str) - 1);
+    }
     cert_str[sizeof(cert_str) - 1] = '\0';
 
     essl->errorlen = 0;

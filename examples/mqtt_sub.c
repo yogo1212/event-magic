@@ -177,7 +177,6 @@ int main(int argc, char *argv[])
                                  ssl_errorcb
                              );
 
-
     if (!cfg.ssl)
         lew_ssl_dont_really_ssl(ssl);
 
@@ -188,7 +187,6 @@ int main(int argc, char *argv[])
     mqtt_session_connect(mc, "event-driven-ssl-test", true, 10, NULL, NULL);
 
     mqtt_session_sub(mc, topic, 1);
-    mqtt_session_pub(mc, "/hallo", "miau", strlen("miau"), 1, false);
 
     sig_event = evsignal_new(base, SIGINT, handle_interrupt, mc);
     event_add(sig_event, NULL);

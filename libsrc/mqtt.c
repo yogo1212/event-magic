@@ -117,6 +117,7 @@ static void delete_retransmission(mqtt_session_t *mc, uint16_t mid)
     mqtt_retransmission_t *r;
     HASH_FIND(hh, mc->active_transmissions, &mid, sizeof(mid), r);
     if (r != NULL) {
+        HASH_DEL(mc->active_transmissions, r);
         mqtt_retransmission_free(r);
     }
 }
@@ -475,6 +476,7 @@ static void handle_puback(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *bu
     mid = mqtt_read_uint16(&buf);
     len -= 2;
 
+    delete_retransmission(mc, mid);
     delete_retransmission(mc, mid);
 
     call_debug_cb(mc, "received puback");
