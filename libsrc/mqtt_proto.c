@@ -358,7 +358,7 @@ void mqtt_write_uint16(void **buf, uint16_t val)
     *buf = pnt;
 }
 
-bool mqtt_write_string(char *string, size_t stringlen, char **out, size_t *outlen)
+bool mqtt_write_string(const char *string, size_t stringlen, char **out, size_t *outlen)
 {
     if (!string) {
         *out = malloc(1024);

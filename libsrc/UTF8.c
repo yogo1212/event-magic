@@ -15,11 +15,11 @@ static bool _utf8_is_continuation(uint8_t byte)
     return (byte & 0xC0) == 0x80;
 }
 
-size_t get_utf8_char_count(void *buf, size_t bytecount)
+size_t get_utf8_char_count(const void *buf, size_t bytecount)
 {
     // either look at the first bits and skip using an array (potentially faster?)
     // or count every byte that is not a continuation:
-    uint8_t *raw = buf;
+    const uint8_t *raw = buf;
     size_t res = 0;
 
     while (bytecount > 0) {
@@ -34,9 +34,9 @@ size_t get_utf8_char_count(void *buf, size_t bytecount)
     return res;
 }
 
-size_t get_utf8_byte_count(void *buf, size_t charcount)
+size_t get_utf8_byte_count(const void *buf, size_t charcount)
 {
-    uint8_t *raw = buf;
+    const uint8_t *raw = buf;
     size_t res = 0;
 
     if (charcount == 0) {
@@ -75,7 +75,7 @@ size_t get_utf8_byte_count(void *buf, size_t charcount)
     return res;
 }
 
-static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, char *buf, size_t bufbc, char **out, size_t *outbc)
+static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, const char *buf, size_t bufbc, char **out, size_t *outbc)
 {
     if (strcmp(to, from) == 0) {
         *out = malloc(bufbc + 1);
@@ -101,7 +101,9 @@ static enum CONVERSION_ERROR _encode_magic(const char *from, const char *to, cha
     *out = malloc(outsize);
     char *outcpy = *out;
 
-    if (iconv(ic, &buf, &bufbc, &outcpy, &outsize) == (size_t) - 1) {
+    char *bufcpy = (char *) buf;
+
+    if (iconv(ic, &bufcpy, &bufbc, &outcpy, &outsize) == (size_t) - 1) {
         switch (errno) {
             case EILSEQ:
                 res = CE_INVALID_SEQ;
@@ -138,14 +140,14 @@ end:
     return res;
 }
 
-enum CONVERSION_ERROR local_to_utf8(char *buf, size_t bufbc, char **out, size_t *outbc)
+enum CONVERSION_ERROR local_to_utf8(const char *buf, size_t bufbc, char **out, size_t *outbc)
 {
     char *encoding = nl_langinfo(CODESET);
 
     return _encode_magic(encoding, UTF8_ENC_STRING, buf, bufbc, out, outbc);
 }
 
-enum CONVERSION_ERROR utf8_to_local(char *buf, size_t bufbc, char **out, size_t *outbc)
+enum CONVERSION_ERROR utf8_to_local(const char *buf, size_t bufbc, char **out, size_t *outbc)
 {
     char *encoding = nl_langinfo(CODESET);
 

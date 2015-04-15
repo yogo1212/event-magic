@@ -10,6 +10,7 @@
 #include <event2/buffer.h>
 
 #include "mqtt.h"
+#include "mqtt_util.h"
 #include "ssl.h"
 
 struct event_base *base;
@@ -33,6 +34,7 @@ typedef struct {
     bool verbose;
     bool reconnect;
     bool ssl;
+    mqtt_subscription_engine_t *sub_engine;
 } sub_config_t;
 
 /* Return NULL if everything went ok or a string containing an error */
@@ -76,6 +78,21 @@ void mqtt_msgcb(mqtt_session_t *conn, const char *topic, void *message, size_t l
 void mqtt_errorcb(mqtt_session_t *conn, enum mqtt_session_error err, char *errormsg)
 {
     fprintf(stderr, "mqtt-error %d: %s\n", err, errormsg);
+}
+
+void mqtt_evtcb(mqtt_session_t *conn, enum mqtt_session_event evt)
+{
+    sub_config_t *cfg;
+    switch (evt) {
+    case MQTT_EVENT_CONNECTED:
+        cfg = mqtt_session_userdata(conn);
+        mqtt_subscription_engine_resub(cfg->sub_engine);
+        break;
+    case MQTT_EVENT_DISCONNECTED:
+        break;
+    default:
+        ;
+    }
 }
 
 void handle_interrupt(int fd, short events, void *arg)
@@ -183,10 +200,13 @@ int main(int argc, char *argv[])
     /* SSL is still not connected - but we can start writing to the bufferevent */
     mqtt_session_t *mc = mqtt_session_create(base, cfg.reconnect ? MQTT_SESSION_OPT_AUTORECONNECT : 0, mqtt_errorcb, &cfg);
 
-    mqtt_session_setup(mc, lew_ssl_connect, ssl, mqtt_msgcb);
+    mqtt_session_setup(mc, (build_connection_t) lew_ssl_connect, ssl);
     mqtt_session_connect(mc, "event-driven-ssl-test", true, 10, NULL, NULL);
+    mqtt_session_set_event_cb(mc, mqtt_evtcb);
 
-    mqtt_session_sub(mc, topic, 1);
+    cfg.sub_engine = mqtt_subscription_engine_new(mc);
+
+    mqtt_subscription_engine_sub(cfg.sub_engine, topic, 1, mqtt_msgcb, NULL);
 
     sig_event = evsignal_new(base, SIGINT, handle_interrupt, mc);
     event_add(sig_event, NULL);

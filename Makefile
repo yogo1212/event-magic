@@ -29,7 +29,7 @@ else
 CFLAGS += -O2
 endif
 
-LDFLAGS += -levent -levent_openssl -lssl -lcrypto
+LDFLAGS += -levent -levent_openssl -lssl -lcrypto -lpcre
 
 LIBCFLAGS := $(CFLAGS) -fPIC
 LIBLDFLAGS := $(LDFLAGS) -shared

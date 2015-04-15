@@ -85,6 +85,6 @@ uint16_t mqtt_read_uint16(void **buf);
 void mqtt_write_uint16(void **buf, uint16_t val);
 
 bool mqtt_read_string(void **buf, size_t *remaining, char **out, size_t *outlen);
-bool mqtt_write_string(char *string, size_t stringlen, char **out, size_t *outlen);
+bool mqtt_write_string(const char *string, size_t stringlen, char **out, size_t *outlen);
 
 #endif

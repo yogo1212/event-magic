@@ -3,10 +3,10 @@
 
 #include <stdbool.h>
 
-size_t get_utf8_char_count(void *buf, size_t bytecount);
+size_t get_utf8_char_count(const void *buf, size_t bytecount);
 
 
-size_t get_utf8_byte_count(void *buf, size_t charcount);
+size_t get_utf8_byte_count(const void *buf, size_t charcount);
 
 enum CONVERSION_ERROR {
     CE_OK,
@@ -18,8 +18,8 @@ enum CONVERSION_ERROR {
     CE_BUFFER_SIZE
 };
 
-enum CONVERSION_ERROR local_to_utf8(char *buf, size_t bufbc, char **out, size_t *outbc);
+enum CONVERSION_ERROR local_to_utf8(const char *buf, size_t bufbc, char **out, size_t *outbc);
 
-enum CONVERSION_ERROR utf8_to_local(char *buf, size_t bufbc, char **out, size_t *outbc);
+enum CONVERSION_ERROR utf8_to_local(const char *buf, size_t bufbc, char **out, size_t *outbc);
 
 #endif

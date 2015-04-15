@@ -36,6 +36,7 @@ struct mqtt_session {
     mqtt_retransmission_t *active_transmissions;
     mqtt_connect_data_t data;
     mqtt_session_message_handler_t msg_cb;
+    void* msg_cb_arg;
     mqtt_session_error_handler_t error_cb;
     mqtt_session_notification_handler_t debug_cb;
     mqtt_session_event_handler_t event_cb;
@@ -129,7 +130,7 @@ static void _mqtt_session_reconnect(int fd, short events, void *arg)
 
     mqtt_session_t *mc = arg;
 
-    mqtt_session_reconnect(mc, mc->data.clean_session);
+    mqtt_session_reconnect(mc);
 }
 
 static void call_error_cb(mqtt_session_t *mc, enum mqtt_session_error err, const char *errstr)
@@ -215,7 +216,7 @@ static void mqtt_send_disconnect(mqtt_session_t *mc)
     call_debug_cb(mc, "sending disconnect");
 }
 
-static void mqtt_send_subscribe(mqtt_session_t *mc, char *topic, uint8_t qos, uint16_t mid)
+static void mqtt_send_subscribe(mqtt_session_t *mc, const char *topic, uint8_t qos, uint16_t mid)
 {
     char *buf;
     size_t bufsize;
@@ -255,7 +256,7 @@ static void mqtt_send_subscribe(mqtt_session_t *mc, char *topic, uint8_t qos, ui
     call_debug_cb(mc, "sending subscribe");
 }
 
-static uint16_t mqtt_send_unsubscribe(mqtt_session_t *mc, char *topic, uint16_t mid)
+static uint16_t mqtt_send_unsubscribe(mqtt_session_t *mc, const char *topic, uint16_t mid)
 {
     uint16_t res = mc->next_mid;
     char *buf;
@@ -297,7 +298,7 @@ static uint16_t mqtt_send_unsubscribe(mqtt_session_t *mc, char *topic, uint16_t 
     return res;
 }
 
-static void mqtt_send_publish(mqtt_session_t *mc, char *topic, const void *data, size_t datalen, uint8_t qos, bool retain, uint16_t mid)
+static void mqtt_send_publish(mqtt_session_t *mc, const char *topic, const void *data, size_t datalen, uint8_t qos, bool retain, uint16_t mid)
 {
     char *topicbuf;
     size_t topicbufsize;
@@ -452,7 +453,7 @@ static void handle_publish(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *b
 
     //TODO if (hdr->qos != 2)
     if (mc->msg_cb) {
-        mc->msg_cb(mc, topic, buf, len);
+        mc->msg_cb(mc, topic, buf, len, hdr->retain, hdr->qos, mc->msg_cb_arg);
     }
 
     free(topic);
@@ -704,6 +705,12 @@ void mqtt_session_set_event_cb(mqtt_session_t *mc, mqtt_session_event_handler_t 
     mc->event_cb = cb;
 }
 
+void mqtt_session_set_msg_cb(mqtt_session_t *mc, mqtt_session_message_handler_t msg_handler, void *msg_arg)
+{
+    mc->msg_cb = msg_handler;
+    mc->msg_cb_arg = msg_arg;
+}
+
 void mqtt_session_set_notification_cb(mqtt_session_t *mc, mqtt_session_notification_handler_t cb)
 {
     mc->debug_cb = cb;
@@ -754,11 +761,10 @@ mqtt_session_t *mqtt_session_create(struct event_base* base, uint8_t options, mq
     return res;
 }
 
-void mqtt_session_setup(mqtt_session_t *mc, build_connection_t conn_builder, void *conn_state, mqtt_session_message_handler_t msg_handler)
+void mqtt_session_setup(mqtt_session_t *mc, build_connection_t conn_builder, void *conn_state)
 {
     mc->conn_builder = conn_builder;
     mc->conn_state = conn_state;
-    mc->msg_cb = msg_handler;
 }
 
 void mqtt_session_connect(mqtt_session_t *mc, char *id, bool clean_session, uint16_t keep_alive, char *username, char *password)
@@ -808,13 +814,14 @@ void mqtt_session_connect(mqtt_session_t *mc, char *id, bool clean_session, uint
         mc->data.password.len = strlen(password);
     }
 
-    mqtt_session_reconnect(mc, clean_session);
+    mqtt_session_reconnect(mc);
 }
 
-void mqtt_session_reconnect(mqtt_session_t* mc, bool clean_session)
+void mqtt_session_reconnect(mqtt_session_t *mc)
 {
-    // TODO only valid if disconnected or connected
-    mc->data.clean_session = clean_session;
+    if (mc ->state == MQTT_STATE_CONNECTED) {
+        mqtt_session_disconnect(mc);
+    }
 
     if (mc->bev)
         bufferevent_free(mc->bev);
@@ -842,13 +849,6 @@ void mqtt_session_disconnect(mqtt_session_t *mc)
     case MQTT_STATE_CONNECTED:
         mqtt_send_disconnect(mc);
         mc->state = MQTT_STATE_DISCONNECTING;
-
-        // somebody might have started the client, sent a message and then killed it. try to deliver that message.
-        if (evbuffer_get_length(bufferevent_get_output(mc->bev)) > 0) {
-            struct timeval timeout = { 2, 0 };
-            event_add(mc->timeout_evt, &timeout);
-            break;
-        }
 
     case MQTT_STATE_DISCONNECTING:
     case MQTT_STATE_ERROR:
@@ -902,17 +902,17 @@ void mqtt_session_cleanup(mqtt_session_t *mc)
     free(mc);
 }
 
-void mqtt_session_sub(mqtt_session_t *mc, char *topic, int qos)
+void mqtt_session_sub(mqtt_session_t *mc, const char *topic, int qos)
 {
     mqtt_send_subscribe(mc, topic, qos, mc->next_mid++);
 }
 
-void mqtt_session_unsub(mqtt_session_t *mc, char *topic)
+void mqtt_session_unsub(mqtt_session_t *mc, const char *topic)
 {
     mqtt_send_unsubscribe(mc, topic, mc->next_mid++);
 }
 
-void mqtt_session_pub(mqtt_session_t *mc, char *topic, const void *payload, size_t payloadlen, uint8_t qos, bool retain)
+void mqtt_session_pub(mqtt_session_t *mc, const char *topic, const void *payload, size_t payloadlen, uint8_t qos, bool retain)
 {
     uint16_t mid = 0;
     if (qos > 0)
