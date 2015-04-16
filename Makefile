@@ -47,7 +47,7 @@ EXBINS = $(patsubst $(EXSRCDIR)/%.c,$(EXOUTDIR)/%,$(wildcard $(EXSRCDIR)/*.c))
 SOURCES = $(LIBSOURCES) $(EXSOURCES)
 HEADERS = $(wildcard $(LIBSRCDIR)/*.h) $(wildcard $(EXSRCDIR)/*.h) $(wildcard $(INCDIR)/*.h)
 
-.PHONY: all clean default lib examples
+.PHONY: all clean default lib examples install uninstall
 
 default: clean lib
 
@@ -93,6 +93,19 @@ format: $(SOURCES) $(HEADERS)
 tab_format: $(SOURCES) $(HEADERS)
 	tools/tab_format $^
 
+
+prefix ?= /usr/local/
+INSTALLDIR = $(prefix)
+LIBINSTALLDIR = $(prefix)lib/
+
+install: $(LIBBIN).$(VERSION)
+	install -m 0755 $^ $(LIBINSTALLDIR)
+	cd $(LIBINSTALLDIR) ; ln -fs $(patsubst $(LIBOUTDIR)/%,%,$(LIBBIN).$(VERSION)) $(patsubst $(LIBOUTDIR)/%,%,$(LIBBIN))
+
+uninstall:
+	cd $(LIBINSTALLDIR) ; rm -rf $(patsubst $(LIBOUTDIR)/%,$(LIBINSTALLDIR)/%*,$(LIBBIN))
+
+$(LIBINSTALLFILES):  | $(INSTALLDIRS)
 
 clean::
 	rm -rf $(DIRS)

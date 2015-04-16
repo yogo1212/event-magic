@@ -316,10 +316,19 @@ static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
     X509 *server_cert = NULL;
     server_cert = X509_STORE_CTX_get_current_cert(x509_ctx);
 
-    const char *res_str = NULL;
-    int ok_so_far = 0;
+    char cert_str[256];
 
-    if ((ok_so_far = X509_verify_cert(x509_ctx)) <= 0) {
+    const char *res_str = NULL;
+
+    if (!server_cert) {
+        strncpy(cert_str, "current cert NULL!", sizeof(cert_str) - 1);
+        goto leave;
+    }
+
+    X509_NAME_oneline(X509_get_subject_name(server_cert), cert_str,
+                          sizeof(cert_str));
+
+    if (X509_verify_cert(x509_ctx) <= 0) {
         res_str = X509_verify_cert_error_string(x509_ctx->error);
 
         goto leave;
@@ -356,27 +365,13 @@ static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
     if (res == MatchFound) {
         return 1;
     }
-    else {
-        /*
-         * int x509_err;
-         * if ((x509_err = X509_STORE_CTX_get_error(ctx)) != X509_V_OK)
-         *     fprintf(stderr, "X509_STORE_CTX_get_error: %d\n", x509_err);
-         */
-    }
-
-    char cert_str[256];
 leave:
-    if (server_cert) {
-        X509_NAME_oneline(X509_get_subject_name(server_cert), cert_str,
-                          sizeof(cert_str));
-    }
-    else {
-        strncpy(cert_str, "NULL", sizeof(cert_str) - 1);
-    }
     cert_str[sizeof(cert_str) - 1] = '\0';
 
-    essl->errorlen = 0;
-    essl->errorlen = snprintf(essl->error, sizeof(essl->error), "validating '%s' failed at'%s': '%s'", essl->hostname, cert_str, res_str);
+    //X509_STORE_CTX_get_error(x509_ctx)
+
+    essl->errorlen = snprintf(essl->error, sizeof(essl->error) - 1, "validating '%s' failed at '%s': '%s'", essl->hostname, cert_str, res_str);
+    essl->error[sizeof(essl->error) - 1] = '\0';
 
     if (essl->errorcb) {
         essl->errorcb(essl, SSL_ERROR_INIT);
