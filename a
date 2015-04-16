@@ -1,0 +1,72 @@
+depth=1 C = GB, ST = United Kingdom, L = Derby, O = Mosquitto, OU = CA, CN = mosquitto.org, emailAddress = roger@atchoo.org
+verify error:num=19:self signed certificate in certificate chain
+verify return:0
+CONNECTED(00000003)
+---
+Certificate chain
+ 0 s:/C=GB/ST=United Kingdom/L=Derby/O=Mosquitto/OU=Public server/CN=test.mosquitto.org/emailAddress=roger@atchoo.org
+   i:/C=GB/ST=United Kingdom/L=Derby/O=Mosquitto/OU=CA/CN=mosquitto.org/emailAddress=roger@atchoo.org
+ 1 s:/C=GB/ST=United Kingdom/L=Derby/O=Mosquitto/OU=CA/CN=mosquitto.org/emailAddress=roger@atchoo.org
+   i:/C=GB/ST=United Kingdom/L=Derby/O=Mosquitto/OU=CA/CN=mosquitto.org/emailAddress=roger@atchoo.org
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIDLTCCApYCCQCs9UdhbDFjdjANBgkqhkiG9w0BAQsFADCBkDELMAkGA1UEBhMC
+R0IxFzAVBgNVBAgMDlVuaXRlZCBLaW5nZG9tMQ4wDAYDVQQHDAVEZXJieTESMBAG
+A1UECgwJTW9zcXVpdHRvMQswCQYDVQQLDAJDQTEWMBQGA1UEAwwNbW9zcXVpdHRv
+Lm9yZzEfMB0GCSqGSIb3DQEJARYQcm9nZXJAYXRjaG9vLm9yZzAeFw0xNTAxMDcy
+MjU4MTlaFw0xOTEyMTIyMjU4MTlaMIGgMQswCQYDVQQGEwJHQjEXMBUGA1UECAwO
+VW5pdGVkIEtpbmdkb20xDjAMBgNVBAcMBURlcmJ5MRIwEAYDVQQKDAlNb3NxdWl0
+dG8xFjAUBgNVBAsMDVB1YmxpYyBzZXJ2ZXIxGzAZBgNVBAMMEnRlc3QubW9zcXVp
+dHRvLm9yZzEfMB0GCSqGSIb3DQEJARYQcm9nZXJAYXRjaG9vLm9yZzCCASIwDQYJ
+KoZIhvcNAQEBBQADggEPADCCAQoCggEBALfvUzt6xxFVDnpMzj0fz4VhJQyNQ1Ry
+A1pof/uumjVJe+UGwgD+C8XS33/317FxbZw8aPA8gtGe6hfSFRdG1L1DerVpHxPN
+YphhFrofEiE+LW7qyjPGkmAPycOiby62Q+ln1N5+psrPtVLSg47loDlM38klNC1W
+I729jZ1R0NWZ8VCN8hpfVqO+ygtzF5ed9n22cL6oBJqtGDUjuw7bVPKP1ie0Y9md
+KlN09eV2jVKAINWsmAZgGOypxB3z7MkbHbeLoLcRWMdUuNFAdorAiqvkVicwZYmu
+XRH+hCAbGbu+gUIBaxf2QkgWQzsx/u1lyM4Iu3fzehVAw5Ukm3JRUM0CAwEAATAN
+BgkqhkiG9w0BAQsFAAOBgQCZcWXMeAHcCoNI7n+xHgv33d9UWmWuyqaFPpKE62l8
+D9ViBjjsWd4iU4VCrNWegHTh/TdzFMi7VFf7c8YqNTWdXPQywoCJSFT/r20mv2Le
+I+LSaLPziCtFS1cYUldQ971PQgMP9Yce946zpFEcdY0gRXCRWGgOap2DzvcqCn1v
+PA==
+-----END CERTIFICATE-----
+subject=/C=GB/ST=United Kingdom/L=Derby/O=Mosquitto/OU=Public server/CN=test.mosquitto.org/emailAddress=roger@atchoo.org
+issuer=/C=GB/ST=United Kingdom/L=Derby/O=Mosquitto/OU=CA/CN=mosquitto.org/emailAddress=roger@atchoo.org
+---
+No client certificate CA names sent
+---
+SSL handshake has read 2251 bytes and written 421 bytes
+---
+New, TLSv1/SSLv3, Cipher is ECDHE-RSA-AES256-GCM-SHA384
+Server public key is 2048 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : ECDHE-RSA-AES256-GCM-SHA384
+    Session-ID: ECF6DBF1A001AFC84831E58AB4F2A496A410F021FC798F071EA3C8B40056C4E5
+    Session-ID-ctx: 
+    Master-Key: 6D872B7A3C17948A5AF49FE5AA6B9ED0197F341464800815775021D13F3F5A2E4EBB49A0D0C1F494C9EB30596EDF4CFB
+    Key-Arg   : None
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 300 (seconds)
+    TLS session ticket:
+    0000 - 61 81 68 96 8f a0 4b d9-4b 07 e0 35 f8 d8 8f 86   a.h...K.K..5....
+    0010 - 4e 7d 0a 91 8a 6a 25 f0-d3 01 85 42 7f c1 0a 9e   N}...j%....B....
+    0020 - 78 ee 72 58 a5 59 52 e6-b8 9d 64 05 65 a4 a6 8c   x.rX.YR...d.e...
+    0030 - f5 5d 6a b6 a5 9a 84 2b-67 ed 4c ee f6 cc df 8a   .]j....+g.L.....
+    0040 - 23 7d e5 a2 14 9d 22 fa-2d de 90 ef a8 1b e3 42   #}....".-......B
+    0050 - 0f 66 6f c5 eb 3f c7 03-71 6d 4e 76 98 a9 6b 4b   .fo..?..qmNv..kK
+    0060 - 17 40 d5 93 b0 b0 bf db-60 a6 bd 59 d1 d4 2e 52   .@......`..Y...R
+    0070 - dd 1d b4 44 46 4b 80 82-7e 77 93 8f 72 e3 72 4c   ...DFK..~w..r.rL
+    0080 - b3 20 bb 4b 97 e5 a3 fa-5e 07 41 2c e9 e8 17 f2   . .K....^.A,....
+    0090 - c5 53 c7 7c d1 2a 06 6d-86 fd 1d e0 5d 34 93 7f   .S.|.*.m....]4..
+    00a0 - 7e 24 63 1d f5 94 a7 47-ea 23 32 f5 f2 2b 7d 73   ~$c....G.#2..+}s
+
+    Start Time: 1429190171
+    Timeout   : 300 (sec)
+    Verify return code: 19 (self signed certificate in certificate chain)
+---
