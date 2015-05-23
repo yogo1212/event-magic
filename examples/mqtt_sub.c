@@ -24,6 +24,7 @@ bool ssl_errorcb(lew_ssl_factory_t *essl, lew_ssl_error_t error)
     return false;
 }
 
+
 typedef struct {
     char *cert;
     char *key;
@@ -66,6 +67,11 @@ const char *ssl_configcb(lew_ssl_factory_t *essl, SSL_CTX *ssl_ctx)
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
 
     return NULL;
+}
+
+void notifcb(mqtt_session_t *mc, const char *msg)
+{
+    fprintf(stderr, "%s\n", msg);
 }
 
 void mqtt_msgcb(mqtt_session_t *conn, const char *topic, const void *message, size_t len, bool retain, uint8_t qos, void *arg)

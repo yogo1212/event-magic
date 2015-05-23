@@ -610,6 +610,18 @@ static void read_callback(struct bufferevent *bev, void *ctx)
     headerlen = ((uintptr_t) bufpnt - (uintptr_t) buf);
 
     ssize_t framelen = remaining_length + headerlen, readlen;
+
+    if (framelen > 0x4000) {
+        call_debug_cb(mc, "DROPPING MESSAGE!");
+        if (evbuffer_get_length(inbuf) < framelen) {
+            bufferevent_setwatermark(bev, EV_READ, framelen, 0);
+        }
+        else {
+            evbuffer_drain(inbuf, framelen);
+        }
+        goto end;
+    }
+
     void *buffer = alloca(framelen);
 
     if ((readlen = evbuffer_copyout(inbuf, buffer, framelen)) < framelen) {
@@ -675,6 +687,7 @@ static void read_callback(struct bufferevent *bev, void *ctx)
 
     // we got a whole message - the next thing we want to read is a header
     bufferevent_setwatermark(bev, EV_READ, 2, 0);
+end:
     bufferevent_trigger(bev, EV_READ, BEV_OPT_DEFER_CALLBACKS);
 }
 
