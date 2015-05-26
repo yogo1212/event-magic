@@ -253,6 +253,8 @@ static void mqtt_send_subscribe(mqtt_session_t *mc, const char *topic, uint8_t q
 
     bufferevent_write_buffer(mc->bev, evb);
 
+    evbuffer_free(evb);
+
     call_debug_cb(mc, "sending subscribe");
 }
 
@@ -290,6 +292,8 @@ static uint16_t mqtt_send_unsubscribe(mqtt_session_t *mc, const char *topic, uin
     evbuffer_add(evb, bufcpy, bufsize);
 
     bufferevent_write_buffer(mc->bev, evb);
+
+    evbuffer_free(evb);
 
     add_retransmission(mc, evb, mid);
 
@@ -333,6 +337,8 @@ static void mqtt_send_publish(mqtt_session_t *mc, const char *topic, const void 
     }
 
     bufferevent_write_buffer(mc->bev, evb);
+
+    evbuffer_free(evb);
 
     call_debug_cb(mc, "sending publish");
 
