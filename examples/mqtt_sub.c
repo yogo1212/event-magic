@@ -234,8 +234,6 @@ int main(int argc, char *argv[])
         mqtt_subscription_engine_sub(cfg.sub_engine, topics[i], 1, mqtt_msgcb, cfg.sub_verbose ? topics[i] : NULL);
     }
 
-    mqtt_subscription_engine_unsub(cfg.sub_engine, topics[0], mqtt_msgcb, cfg.sub_verbose ? topics[i] : NULL);
-
     sig_event = evsignal_new(base, SIGINT, handle_interrupt, mc);
     event_add(sig_event, NULL);
 
