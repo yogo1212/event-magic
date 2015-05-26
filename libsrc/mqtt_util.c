@@ -73,7 +73,7 @@ static char *dull_replace(const char *in, const char *pattern, const char *by)
     return res;
 }
 
-bool subscription_matches_topic(mqtt_subscription_t *sub, const char *topic)
+static bool subscription_matches_topic(mqtt_subscription_t *sub, const char *topic)
 {
     int pcreExecRet;
     int subStrVec[3 * 10];
