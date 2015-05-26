@@ -602,6 +602,7 @@ static void read_callback(struct bufferevent *bev, void *ctx)
             return;
         }
 
+        //TODO drop connection here... don't know where the next header starts - if there is one
         // request one more byte than we were able to read
         bufferevent_setwatermark(bev, EV_READ, headerlen + 1, 0);
         return;
