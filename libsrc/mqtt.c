@@ -874,6 +874,8 @@ void mqtt_session_reconnect(mqtt_session_t *mc)
 
     if (!mc->bev) {
         call_error_cb(mc, MQTT_ERROR_HARD, "got a NULL bufferevent");
+        mc->state = MQTT_STATE_DISCONNECTED;
+        return;
     }
 
     bufferevent_setwatermark(mc->bev, EV_READ, 2, 0);
