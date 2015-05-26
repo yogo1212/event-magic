@@ -31,6 +31,7 @@ struct mqtt_session {
     void *userdata;
     bool awaiting_ping;
     struct event *timeout_evt;
+    size_t remaining_drainage;
     enum MQTT_STATE state;
     uint16_t next_mid;
     mqtt_retransmission_t *active_transmissions;
@@ -582,6 +583,29 @@ static void event_callback(struct bufferevent *bev, short what, void *ctx)
     }
 }
 
+static void read_callback(struct bufferevent *bev, void *ctx);
+
+static void drain_callback(struct bufferevent *bev, void *ctx)
+{
+    mqtt_session_t *mc = (mqtt_session_t *) ctx;
+    struct evbuffer *inbuf = bufferevent_get_input(bev);
+
+    size_t len = evbuffer_get_length(inbuf), drain_amount;
+
+    if (mc->remaining_drainage > len)
+        drain_amount = len;
+    else {
+        drain_amount = mc->remaining_drainage;
+
+        bufferevent_setcb(mc->bev, read_callback, NULL, event_callback, mc);
+        bufferevent_setwatermark(bev, EV_READ, 2, 0);
+        bufferevent_trigger(bev, EV_READ, BEV_OPT_DEFER_CALLBACKS);
+    }
+
+    mc->remaining_drainage -= drain_amount;
+    evbuffer_drain(inbuf, drain_amount);
+}
+
 static void read_callback(struct bufferevent *bev, void *ctx)
 {
     mqtt_session_t *mc = (mqtt_session_t *) ctx;
@@ -620,12 +644,9 @@ static void read_callback(struct bufferevent *bev, void *ctx)
 
     if (framelen > 0x4000) {
         call_debug_cb(mc, "DROPPING MESSAGE!");
-        if (evbuffer_get_length(inbuf) < framelen) {
-            bufferevent_setwatermark(bev, EV_READ, framelen, 0);
-        }
-        else {
-            evbuffer_drain(inbuf, framelen);
-        }
+        mc->remaining_drainage = framelen;
+        bufferevent_setwatermark(bev, EV_READ, framelen, 0);
+        bufferevent_setcb(mc->bev, drain_callback, NULL, event_callback, mc);
         goto end;
     }
 
@@ -857,6 +878,8 @@ void mqtt_session_reconnect(mqtt_session_t *mc)
     bufferevent_setwatermark(mc->bev, EV_READ, 2, 0);
     bufferevent_setcb(mc->bev, read_callback, NULL, event_callback, mc);
     bufferevent_enable(mc->bev, EV_READ); /* Start reading. */
+
+    mc->remaining_drainage = 0;
 
     mqtt_send_connect(mc);
     struct timeval interval = { mc->data.keep_alive, 0 };
