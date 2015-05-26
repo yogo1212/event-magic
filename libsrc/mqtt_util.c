@@ -159,6 +159,15 @@ static mqtt_subscription_t *mqtt_subscription_new(mqtt_subscription_engine_t *se
     regex = dull_replace(tmp, "#", ".*");
     free(tmp);
 
+    size_t rexlen = strlen(regex);
+    tmp = alloca(rexlen + 3);
+    memcpy(&tmp[1], regex, rexlen);
+    tmp[0] = '^';
+    tmp[rexlen + 1] = '$';
+    tmp[rexlen + 2] = '\0';
+
+    regex = tmp;
+
     mqtt_subscription_t *res = malloc(sizeof(mqtt_subscription_t));
 
     res->topic = strdup(topic);
@@ -170,8 +179,6 @@ static mqtt_subscription_t *mqtt_subscription_new(mqtt_subscription_engine_t *se
 
     // First, the regex string must be compiled.
     res->topic_regex = pcre_compile(regex, 0, &pcreErrorStr, &pcreErrorOffset, NULL);
-
-    free(regex);
 
     // pcre_compile returns NULL on error, and sets pcreErrorOffset & pcreErrorStr
     if (res->topic_regex == NULL) {
