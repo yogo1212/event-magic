@@ -642,6 +642,7 @@ static void read_callback(struct bufferevent *bev, void *ctx)
 
     ssize_t framelen = remaining_length + headerlen, readlen;
 
+    // TODO this should be a parameter
     if (framelen > 0x4000) {
         call_debug_cb(mc, "DROPPING MESSAGE!");
         mc->remaining_drainage = framelen;
