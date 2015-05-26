@@ -265,7 +265,7 @@ bool mqtt_subscription_engine_sub(mqtt_subscription_engine_t *se, const char *to
         sub = mqtt_subscription_new(se, topic, qos);
         if (!sub)
             return false;
-        HASH_ADD_STR(se->subs, topic, sub);
+        HASH_ADD_KEYPTR(hh, se->subs, topic, strlen(topic), sub);
    }
 
     mqtt_subscription_add_handler(sub, cb, ctx);
