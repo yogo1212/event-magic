@@ -166,6 +166,8 @@ static mqtt_subscription_t *mqtt_subscription_new(mqtt_subscription_engine_t *se
     tmp[rexlen + 1] = '$';
     tmp[rexlen + 2] = '\0';
 
+    free(regex);
+
     regex = tmp;
 
     mqtt_subscription_t *res = malloc(sizeof(mqtt_subscription_t));
