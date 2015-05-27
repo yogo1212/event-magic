@@ -92,6 +92,7 @@ static mqtt_retransmission_t *mqtt_retransmission_new(mqtt_session_t *session, v
     *cpyptr |= ((1 << 3) & 0x8);
 
     return res;
+    // TODO pause these while disconnected and resume on connection
 }
 
 static void mqtt_retransmission_free(mqtt_retransmission_t *r) {
