@@ -901,10 +901,12 @@ void mqtt_session_disconnect(mqtt_session_t *mc)
     case MQTT_STATE_CONNECTED:
         mqtt_send_disconnect(mc);
         mc->state = MQTT_STATE_DISCONNECTING;
+        struct timeval interval = { 1, 0 };
+        event_add(mc->timeout_evt, &interval);
+        return;
 
     case MQTT_STATE_DISCONNECTING:
     case MQTT_STATE_ERROR:
-        goto just_do_it;
         break;
 
     default:
@@ -912,9 +914,6 @@ void mqtt_session_disconnect(mqtt_session_t *mc)
         call_error_cb(mc, MQTT_ERROR_STATE, buf);
     }
 
-    return;
-
-just_do_it:
     if (mc->bev) {
         bufferevent_free(mc->bev);
         mc->bev = NULL;
