@@ -914,8 +914,10 @@ void mqtt_session_cleanup(mqtt_session_t *mc)
         }
     }
 
-    if (mc->bev)
+    if (mc->bev) {
+        bufferevent_flush(mc->bev, EV_WRITE, BEV_FLUSH);
         bufferevent_free(mc->bev);
+    }
 
     event_free(mc->timeout_evt);
 
