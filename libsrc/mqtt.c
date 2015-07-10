@@ -637,13 +637,13 @@ static void read_callback(struct bufferevent *bev, void *ctx)
 
     void *buffer = alloca(framelen);
 
-    if ((readlen = evbuffer_copyout(inbuf, buffer, framelen)) < framelen) {
-        if (readlen == -1) {
-            call_error_cb(mc, MQTT_ERROR_NETWORK, "evbuffer_copyout -1");
-            return;
-        }
+    if ((readlen = evbuffer_copyout(inbuf, buffer, framelen)) == -1) {
+        call_error_cb(mc, MQTT_ERROR_NETWORK, "evbuffer_copyout -1");
+        return;
+    }
 
-        bufferevent_setwatermark(bev, EV_READ, headerlen + remaining_length, 0);
+    if ((size_t) readlen < framelen) {
+        bufferevent_setwatermark(bev, EV_READ, framelen, 0);
         return;
     }
 
