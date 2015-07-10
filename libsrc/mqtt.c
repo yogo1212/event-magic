@@ -594,6 +594,10 @@ static void read_callback(struct bufferevent *bev, void *ctx)
     //look into the buffer
     size_t remaining_length;
     ssize_t headerlen = evbuffer_copyout(inbuf, buf, sizeof(buf));
+    if (headerlen < 0) {
+        bufferevent_setwatermark(bev, EV_READ, 2, 0);
+        return;
+    }
 
     bufpnt = buf;
     //OK, maybe my api-design sucks for this...
