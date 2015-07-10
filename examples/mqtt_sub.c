@@ -35,6 +35,7 @@ typedef struct {
     bool verbose;
     bool reconnect;
     bool ssl;
+    bool debug;
     bool sub_verbose;
     mqtt_subscription_engine_t *sub_engine;
 } sub_config_t;
@@ -94,6 +95,11 @@ void mqtt_errorcb(mqtt_session_t *conn, enum mqtt_session_error err, char *error
     fprintf(stderr, "mqtt-error %d: %s\n", err, errormsg);
 }
 
+void notif_cb(mqtt_session_t *mc, const char *str)
+{
+    fprintf(stderr, "%s\n", str);
+}
+
 void mqtt_evtcb(mqtt_session_t *conn, enum mqtt_session_event evt)
 {
     sub_config_t *cfg;
@@ -114,7 +120,8 @@ void handle_interrupt(int fd, short events, void *arg)
     (void) fd;
     (void) events;
 
-    mqtt_session_disconnect(arg);
+    struct timeval timeval = { 1, 0 };
+    event_base_loopexit(base, &timeval);
     event_free(sig_event);
 }
 
@@ -141,11 +148,12 @@ int main(int argc, char *argv[])
     cfg.verbose = true;
     cfg.ssl = true;
     cfg.sub_verbose = false;
+    cfg.debug = false;
 
     {
         opterr = 0;
         int c;
-        while ((c = getopt (argc, argv, "a:k:c:s:p:t:nlrhv")) != -1)
+        while ((c = getopt (argc, argv, "a:k:c:s:p:t:dnlrhv")) != -1)
         {
             switch (c)
             {
@@ -158,6 +166,9 @@ int main(int argc, char *argv[])
             case 'c':
                 miau.cert = optarg;
                 break;
+            case 'd':
+                cfg.debug = true;
+                break;
             case 's':
                 server = optarg;
                 break;
@@ -165,6 +176,8 @@ int main(int argc, char *argv[])
                 port = atoi(optarg);
                 break;
             case 't':
+                if (topic_count == 0)
+                    topics = malloc(0);
                 topic_count++;
                 topics = realloc(topics, topic_count * sizeof(char *));
                 topics[topic_count - 1] = optarg;
@@ -223,6 +236,10 @@ int main(int argc, char *argv[])
     /* SSL is still not connected - but we can start writing to the bufferevent */
     mqtt_session_t *mc = mqtt_session_create(base, cfg.reconnect ? MQTT_SESSION_OPT_AUTORECONNECT : 0, mqtt_errorcb, &cfg);
 
+    if (cfg.debug) {
+        mqtt_session_set_notification_cb(mc, notif_cb);
+    }
+
     mqtt_session_setup(mc, (build_connection_t) lew_ssl_connect, ssl);
     mqtt_session_connect(mc, "event-driven-ssl-test", true, 10, NULL, NULL);
     mqtt_session_set_event_cb(mc, mqtt_evtcb);
@@ -241,6 +258,8 @@ int main(int argc, char *argv[])
 
 mqtt_cleanup:
     mqtt_subscription_engine_free(cfg.sub_engine);
+    mqtt_session_disconnect(mc);
+
     mqtt_session_cleanup(mc);
 
 ssl_cleanup:
