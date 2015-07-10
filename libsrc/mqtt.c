@@ -446,10 +446,7 @@ static void handle_publish(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *b
     size_t topic_len;
 
     if (!mqtt_read_string(&buf, &len, &topic, &topic_len)) {
-        //call_error_cb(mc, MQTT_ERROR_PROTOCOL, topic);
-        // TODO there seem to be messages on test.mosquitto.org that are not correctly UTF8-encoded...
-        // really, we DO want to break here! Isn't very good for testing stability, though
-        call_debug_cb(mc, topic);
+        call_error_cb(mc, MQTT_ERROR_PROTOCOL, topic);
         free(topic);
         return;
     }
