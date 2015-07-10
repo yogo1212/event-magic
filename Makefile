@@ -21,10 +21,10 @@ DIRS = $(LIBDIRS) $(EXDIRS)
 
 
 CFLAGS += -std=gnu99 -pedantic -Wall -I$(INCDIR)
-AIRFY_DEBUG = 1
+DEBUG = 1
 
-ifeq (1,$(AIRFY_DEBUG))
-CFLAGS += -DAIRFY_DEBUG -g -Wextra
+ifeq (1,$(DEBUG))
+CFLAGS += -g -Wextra
 else
 CFLAGS += -O2
 endif
@@ -47,7 +47,7 @@ EXBINS = $(patsubst $(EXSRCDIR)/%.c,$(EXOUTDIR)/%,$(wildcard $(EXSRCDIR)/*.c))
 SOURCES = $(LIBSOURCES) $(EXSOURCES)
 HEADERS = $(wildcard $(LIBSRCDIR)/*.h) $(wildcard $(EXSRCDIR)/*.h) $(wildcard $(INCDIR)/*.h)
 
-.PHONY: all clean default lib examples install uninstall
+.PHONY: all clean default lib examples debug install uninstall
 
 default: clean lib
 
@@ -56,6 +56,9 @@ all: lib examples
 lib: $(LIBBIN)
 
 examples: $(EXBINS)
+
+debug:
+	$(MAKE) DEBUG=1
 
 #	$(foreach var,$(EXBINS),$(CC) $(EXSRCDIR)/$(var).c $(LDFLAGS) $(CFLAGS) -o $(EXOUTDIR)/$(var); )
 
