@@ -934,18 +934,22 @@ void mqtt_session_cleanup(mqtt_session_t *mc)
 
 void mqtt_session_sub(mqtt_session_t *mc, const char *topic, int qos)
 {
-    mqtt_send_subscribe(mc, topic, qos, mc->next_mid++);
+    if (mc->state == MQTT_STATE_CONNECTED)
+        mqtt_send_subscribe(mc, topic, qos, mc->next_mid++);
 }
 
 void mqtt_session_unsub(mqtt_session_t *mc, const char *topic)
 {
-    mqtt_send_unsubscribe(mc, topic, mc->next_mid++);
+    if (mc->state == MQTT_STATE_CONNECTED)
+        mqtt_send_unsubscribe(mc, topic, mc->next_mid++);
 }
 
 void mqtt_session_pub(mqtt_session_t *mc, const char *topic, const void *payload, size_t payloadlen, uint8_t qos, bool retain)
 {
-    uint16_t mid = 0;
-    if (qos > 0)
-        mid = mc->next_mid++;
-    mqtt_send_publish(mc, topic, payload, payloadlen, qos, retain, mid);
+    if (mc->state == MQTT_STATE_CONNECTED) {
+        uint16_t mid = 0;
+        if (qos > 0)
+            mid = mc->next_mid++;
+        mqtt_send_publish(mc, topic, payload, payloadlen, qos, retain, mid);
+    }
 }
