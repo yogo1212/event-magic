@@ -72,6 +72,8 @@ const char *ssl_configcb(lew_ssl_factory_t *essl, SSL_CTX *ssl_ctx)
 
 void notifcb(mqtt_session_t *mc, const char *msg)
 {
+    (void) mc;
+
     fprintf(stderr, "%s\n", msg);
 }
 
@@ -97,6 +99,8 @@ void mqtt_errorcb(mqtt_session_t *conn, enum mqtt_session_error err, char *error
 
 void notif_cb(mqtt_session_t *mc, const char *str)
 {
+    (void) mc;
+
     fprintf(stderr, "%s\n", str);
 }
 
@@ -119,6 +123,7 @@ void handle_interrupt(int fd, short events, void *arg)
 {
     (void) fd;
     (void) events;
+    (void) arg;
 
     struct timeval timeval = { 1, 0 };
     event_base_loopexit(base, &timeval);
@@ -256,16 +261,16 @@ int main(int argc, char *argv[])
 
     event_base_dispatch(base);
 
-mqtt_cleanup:
+//mqtt_cleanup:
     mqtt_subscription_engine_free(cfg.sub_engine);
     mqtt_session_disconnect(mc);
 
     mqtt_session_cleanup(mc);
 
-ssl_cleanup:
+//ssl_cleanup:
     lew_ssl_connection_cleanup(ssl);
 
-base_cleanup:
+//base_cleanup:
     event_base_free(base);
 
     if (topics)
