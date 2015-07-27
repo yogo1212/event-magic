@@ -5,7 +5,7 @@
 #include <event2/bufferevent.h>
 #include <event2/event.h>
 
-#include "ssl.h"
+#include "event-magic/ssl.h"
 
 struct event *sig_event;
 struct event_base *base;

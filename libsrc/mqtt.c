@@ -8,7 +8,7 @@
 #include "mqtt_proto.h"
 #include "uthash.h"
 
-#include "mqtt.h"
+#include "event-magic/mqtt.h"
 
 enum MQTT_STATE {
     //MQTT_STATE_INVALID = 0,

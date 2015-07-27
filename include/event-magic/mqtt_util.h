@@ -1,7 +1,7 @@
 #ifndef __MQTT_UTIL_H
 #define __MQTT_UTIL_H
 
-#include <mqtt.h>
+#include <event-magic/mqtt.h>
 
 struct mqtt_subscription_engine;
 typedef struct mqtt_subscription_engine mqtt_subscription_engine_t;

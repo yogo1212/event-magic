@@ -4,7 +4,7 @@
 
 #include <event2/http.h>
 
-#include "http.h"
+#include "event-magic/http.h"
 
 struct http_ssl_conn {
     lew_ssl_factory_t *essl;

@@ -6,9 +6,9 @@
 #include "utarray.h"
 #include "uthash.h"
 
-#include "mqtt.h"
+#include "event-magic/mqtt.h"
 
-#include "mqtt_util.h"
+#include "event-magic/mqtt_util.h"
 
 struct mqtt_subscription;
 typedef struct mqtt_subscription mqtt_subscription_t;

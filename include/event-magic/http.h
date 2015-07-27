@@ -7,7 +7,7 @@
  * don't blame me.
  * that simple.
  */
-#include "ssl.h"
+#include "event-magic/ssl.h"
 
 struct http_ssl_conn;
 typedef struct http_ssl_conn http_ssl_conn_t;

@@ -9,7 +9,7 @@
 
 #include "openssl_hostname_validation.h"
 
-#include "ssl.h"
+#include "event-magic/ssl.h"
 
 enum LEW_SSL_STATE {
     SSL_STATE_PREPARING,

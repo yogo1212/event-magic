@@ -9,9 +9,9 @@
 #include <event2/event.h>
 #include <event2/buffer.h>
 
-#include "mqtt.h"
-#include "mqtt_util.h"
-#include "ssl.h"
+#include "event-magic/mqtt.h"
+#include "event-magic/mqtt_util.h"
+#include "event-magic/ssl.h"
 
 struct event_base *base;
 struct event *sig_event;

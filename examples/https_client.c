@@ -9,8 +9,8 @@
 #include <event2/event.h>
 #include <event2/http.h>
 
-#include "ssl.h"
-#include "http.h"
+#include "event-magic/ssl.h"
+#include "event-magic/http.h"
 
 //#define TEST_URI "https://www.google.de"
 #define TEST_URI "https://blog.fefe.de"
