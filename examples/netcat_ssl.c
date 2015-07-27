@@ -20,6 +20,8 @@ static void cleanup(void)
 
 static void stdineventcb(struct bufferevent *bev, short events, void *ptr)
 {
+    (void) bev;
+
     if (events & BEV_EVENT_CONNECTED) {
     }
     else if (events & BEV_EVENT_ERROR) {
@@ -34,6 +36,8 @@ static void stdineventcb(struct bufferevent *bev, short events, void *ptr)
 
 static void stdinreadcb(struct bufferevent *bev, void *ctx)
 {
+    (void) ctx;
+
     uint8_t buf[512];
     size_t rsize;
 
@@ -43,6 +47,8 @@ static void stdinreadcb(struct bufferevent *bev, void *ctx)
 
 static void sslineventcb(struct bufferevent *bev, short events, void *ptr)
 {
+    (void) bev;
+
     if (events & BEV_EVENT_CONNECTED) {
     }
     else if (events & BEV_EVENT_ERROR) {
@@ -57,6 +63,8 @@ static void sslineventcb(struct bufferevent *bev, short events, void *ptr)
 
 static void sslinreadcb(struct bufferevent *bev, void *ctx)
 {
+    (void) ctx;
+
     uint8_t buf[512];
     size_t rsize;
 
