@@ -60,12 +60,25 @@ static void retransmission_timeout(int fd, short evt, void *arg)
     (void) evt;
     mqtt_retransmission_t *r = arg;
 
-    if (r->session->state == MQTT_STATE_CONNECTED)
+    r->tvl.tv_usec = 0;
+    if (r->session->state == MQTT_STATE_CONNECTED) {
         bufferevent_write(r->session->bev, r->buffer, r->len);
 
-    r->tvl.tv_sec = r->tvl.tv_sec + 1;
-    if (r->tvl.tv_sec >= 12)
+        // set the dup-flag
+        uint8_t *cpyptr = r->buffer;
+        // TODO ? shift + and ?
+        *cpyptr |= ((1 << 3) & 0x8);
+
+        // TODO this is not good for big messages...
+        // it might be worth it for mc to monitor the actual throughput and have this wait for e.g. 1.5 times the expected time.
+        r->tvl.tv_sec = r->tvl.tv_sec + 1;
+        if (r->tvl.tv_sec >= 12)
+            r->tvl.tv_sec = 1;
+    }
+    else {
         r->tvl.tv_sec = 1;
+    }
+
     event_add(r->evt, &r->tvl);
 }
 
@@ -79,18 +92,13 @@ static mqtt_retransmission_t *mqtt_retransmission_new(mqtt_session_t *session, v
     memcpy(res->buffer, data, datalen);
 
     res->evt = event_new(session->base, -1, EV_TIMEOUT, retransmission_timeout, res);
-    res->tvl.tv_usec = 0;
+    res->tvl.tv_usec = 10;
     res->tvl.tv_sec = 0;
 
     res->mid = mid;
 
     if (res->session->state == MQTT_STATE_CONNECTED)
         event_add(res->evt, &res->tvl);
-
-    // set the dup-flag
-    uint8_t *cpyptr = res->buffer;
-    // TODO ? shift + and ?
-    *cpyptr |= ((1 << 3) & 0x8);
 
     return res;
 }
@@ -266,8 +274,6 @@ static void mqtt_send_subscribe(mqtt_session_t *mc, const char *topic, uint8_t q
 
     add_retransmission(mc, evb, mid);
 
-    bufferevent_write_buffer(mc->bev, evb);
-
     evbuffer_free(evb);
 
     call_debug_cb(mc, "sending subscribe");
@@ -306,11 +312,9 @@ static uint16_t mqtt_send_unsubscribe(mqtt_session_t *mc, const char *topic, uin
     evbuffer_add(evb, &midbuf, sizeof(midbuf));
     evbuffer_add(evb, bufcpy, bufsize);
 
-    bufferevent_write_buffer(mc->bev, evb);
+    add_retransmission(mc, evb, mid);
 
     evbuffer_free(evb);
-
-    add_retransmission(mc, evb, mid);
 
     call_debug_cb(mc, "sending unsubscribe");
 
@@ -350,8 +354,9 @@ static void mqtt_send_publish(mqtt_session_t *mc, const char *topic, const void 
     if (qos > 0) {
         add_retransmission(mc, evb, mid);
     }
-
-    bufferevent_write_buffer(mc->bev, evb);
+    else {
+        bufferevent_write_buffer(mc->bev, evb);
+    }
 
     evbuffer_free(evb);
 
