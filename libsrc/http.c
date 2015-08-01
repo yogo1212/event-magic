@@ -118,7 +118,7 @@ http_request_t *http_request_make_request(http_ssl_conn_t *conn,
 
     struct evkeyvalq *output_headers = evhttp_request_get_output_headers(res->req);
 
-    if (res->options & HRO_REQ_DONT_ADD_HOST_HEADER) {
+    if (!(res->options & HRO_REQ_DONT_ADD_HOST_HEADER)) {
         evhttp_add_header(output_headers, "Host", lew_ssl_get_hostname(conn->essl));
     }
 
