@@ -84,14 +84,15 @@ static mqtt_retransmission_t *mqtt_retransmission_new(mqtt_session_t *session, v
 
     res->mid = mid;
 
-    event_add(res->evt, &res->tvl);
+    if (res->session->state == MQTT_STATE_CONNECTED)
+        event_add(res->evt, &res->tvl);
 
     // set the dup-flag
     uint8_t *cpyptr = res->buffer;
+    // TODO ? shift + and ?
     *cpyptr |= ((1 << 3) & 0x8);
 
     return res;
-    // TODO pause these while disconnected and resume on connection
 }
 
 static void mqtt_retransmission_free(mqtt_retransmission_t *r) {
@@ -101,12 +102,25 @@ static void mqtt_retransmission_free(mqtt_retransmission_t *r) {
     free(r);
 }
 
+static void mqtt_retransmission_resume(mqtt_retransmission_t *r) {
+    if (r->session->state == MQTT_STATE_CONNECTED)
+        event_add(r->evt, &r->tvl);
+}
+
+static void mqtt_retransmission_pause(mqtt_retransmission_t *r) {
+    event_del(r->evt);
+}
+
 static void add_retransmission(mqtt_session_t *mc, struct evbuffer *evb, uint16_t mid)
 {
     size_t evblen = evbuffer_get_length(evb);
     void *evbbuf = alloca(evblen);
     evbuffer_copyout(evb, evbbuf, evblen);
     mqtt_retransmission_t *r = mqtt_retransmission_new(mc, evbbuf, evblen, mid);
+
+    if (mc->state != MQTT_STATE_CONNECTED)
+        mqtt_retransmission_pause(r);
+
     mqtt_retransmission_t *tmp;
     HASH_REPLACE(hh, mc->active_transmissions, mid, sizeof(mid), r, tmp);
     if (tmp != NULL) {
@@ -424,6 +438,12 @@ static void handle_connack(mqtt_session_t *mc, mqtt_proto_header_t *hdr, void *b
 
     if (mc->event_cb) {
         mc->event_cb(mc, MQTT_EVENT_CONNECTED);
+    }
+
+    mqtt_retransmission_t *r, *tmp;
+
+    HASH_ITER(hh, mc->active_transmissions, r, tmp) {
+        mqtt_retransmission_resume(r);
     }
 
     call_debug_cb(mc, "received connack");
