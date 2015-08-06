@@ -134,7 +134,7 @@ void print_usage(void)
 {
     fprintf(stderr, "Usage:\n[-a CA_FILE]\n[-k KEY_FILE]\n[-c CERT_FILE]\n[-(subscription-)v(erbosity) (prepend the subscription-topic)]\n"\
     "[-n(o topic-output)] (don't print topics, only payloads - doesn't affect -i)\n[-(no-ss)l] (don't use SSL)\n[-h(elp)]\n[-r(econnect)]\n"\
-    "-s REMOTE_HOST\n-p PORT\n-t TOPIC (can be used more than once)\n");
+    "-s REMOTE_HOST\n-p PORT\n-t TOPIC (can be used more than once)\n-q QOS (the last one to follow a certain topic wins)\n");
 }
 
 int main(int argc, char *argv[])
@@ -142,6 +142,7 @@ int main(int argc, char *argv[])
     char *server = NULL;
     uint16_t port = 0;
     char **topics = NULL;
+    uint8_t *qoss = NULL;
     size_t topic_count = 0;
 
     auth_data_t miau;
@@ -158,7 +159,8 @@ int main(int argc, char *argv[])
     {
         opterr = 0;
         int c;
-        while ((c = getopt (argc, argv, "a:k:c:s:p:t:dnlrhv")) != -1)
+        long int tmpqos;
+        while ((c = getopt (argc, argv, "a:k:c:s:p:t:q:dnlrhv")) != -1)
         {
             switch (c)
             {
@@ -185,7 +187,26 @@ int main(int argc, char *argv[])
                     topics = malloc(0);
                 topic_count++;
                 topics = realloc(topics, topic_count * sizeof(char *));
+                qoss = realloc(qoss, topic_count * sizeof(uint8_t));
+                qoss[topic_count - 1] = 1;
                 topics[topic_count - 1] = optarg;
+                break;
+            case 'q':
+                if (topic_count == 0) {
+                    fprintf(stderr, "qos ->%s<- not attached to any topic\n", optarg);
+                    continue;
+                }
+                errno = 0;
+                tmpqos = strtol(optarg, NULL, 10);
+                if (errno != 0) {
+                    fprintf(stderr, "can't parse qos ->%s<-\n", optarg);
+                    return EXIT_FAILURE;
+                }
+                if ((tmpqos < 0) || (tmpqos > 2)) {
+                    fprintf(stderr, "not a valid qos ->%ld<-\n", tmpqos);
+                    return EXIT_FAILURE;
+                }
+                qoss[topic_count - 1] = tmpqos;
                 break;
             case 'n':
                 cfg.verbose = false;
@@ -253,7 +274,7 @@ int main(int argc, char *argv[])
 
     size_t i;
     for (i = 0; i < topic_count; i++) {
-        mqtt_subscription_engine_sub(cfg.sub_engine, topics[i], 1, mqtt_msgcb, cfg.sub_verbose ? topics[i] : NULL);
+        mqtt_subscription_engine_sub(cfg.sub_engine, topics[i], qoss[i], mqtt_msgcb, cfg.sub_verbose ? topics[i] : NULL);
     }
 
     sig_event = evsignal_new(base, SIGINT, handle_interrupt, mc);
