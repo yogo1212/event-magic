@@ -12,8 +12,8 @@
 #include "event-magic/ssl.h"
 #include "event-magic/http.h"
 
-//#define TEST_URI "https://www.google.de"
-#define TEST_URI "https://blog.fefe.de"
+#define TEST_URI "https://www.google.de"
+//#define TEST_URI "https://blog.fefe.de"
 #define TEST_CA_FILE "/etc/ssl/ca-bundle.pem"
 #define TEST_CA_PATH NULL//"/etc/ssl/certs/"
 
@@ -59,8 +59,10 @@ void example_handle_request(struct evhttp_request *req, void *usr)
 
 int main(int argc, char *argv[])
 {
-    (void) argc;
-    (void) argv;
+    if (argc < 2) {
+        fprintf(stderr, "need uri\n");
+        exit(-1);
+    }
 
     struct event_base *base = event_base_new();
 
@@ -69,9 +71,9 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    http_request_data_t *hrd = parse_uri(TEST_URI);
+    struct evhttp_uri *http_uri = evhttp_uri_parse(argv[1]);
 
-    if (!hrd) {
+    if (!http_uri) {
         fprintf(stderr, "couldn't parse uri.. aborting\n");
         goto base_cleanup;
     }
@@ -79,24 +81,31 @@ int main(int argc, char *argv[])
     lew_ssl_factory_t *essl = lew_ssl_create
                       (
                           base,
-                          hrd->host,
-                          hrd->port,
+                          evhttp_uri_get_host(http_uri),
+                          evhttp_uri_get_port_web(http_uri),
                           NULL,
                           NULL,
                           NULL
                       );
+    if (strcasecmp(evhttp_uri_get_scheme(http_uri), "https") != 0) {
+        fprintf(stderr, "not really ssl-ing\n");
+        lew_ssl_dont_really_ssl(essl);
+    }
 
     http_ssl_conn_t *sslconn = http_ssl_setup(base, essl);
 
-    http_request_t *request = http_request_make_request(sslconn, HRO_REQ_CAN_FREE_CONN, hrd->uri, NULL, example_handle_request, NULL);
+    struct evhttp_request *req = evhttp_request_new(example_handle_request, NULL);
+    char *uri = evhttp_uri_get_path_web(http_uri);
+    fprintf(stderr, "requesting %s\n", uri);
+    evhttp_make_request(http_ssl_get_evhttp_con(sslconn), req, EVHTTP_REQ_GET, uri);
 
     event_base_dispatch(base);
 
-    //request_cleanup:
-    http_request_cleanup(request);
+    free(uri);
 
-    //hrd_cleanup:
-    free(hrd);
+    evhttp_uri_free(http_uri);
+
+    http_ssl_conn_cleanup(sslconn);
 
 base_cleanup:
     event_base_free(base);

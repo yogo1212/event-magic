@@ -13,6 +13,7 @@ struct http_ssl_conn {
 
 void http_ssl_conn_cleanup(http_ssl_conn_t *sslconn)
 {
+    //bufferevent_free(evhttp_connection_get_bufferevent(sslconn->evhttpcon));
     evhttp_connection_free(sslconn->evhttpcon);
     lew_ssl_connection_cleanup(sslconn->essl);
 
@@ -33,111 +34,46 @@ http_ssl_conn_t *http_ssl_setup(struct event_base *base, lew_ssl_factory_t *essl
     return res;
 }
 
-http_request_data_t *parse_uri(const char *uri_str)
+struct evhttp_connection *http_ssl_get_evhttp_con(http_ssl_conn_t *con)
 {
-    http_request_data_t *res = malloc(sizeof(http_request_data_t));
-    res->http_uri = evhttp_uri_parse(uri_str);
+    return con->evhttpcon;
+}
 
-    if (res->http_uri == NULL) {
-        fprintf(stderr, "malformed url\n");
-        goto ouch;
+uint16_t evhttp_uri_get_port_web(struct evhttp_uri *http_uri)
+{
+    int port = evhttp_uri_get_port(http_uri);
+    if (port > -1)
+        return port;
+
+    const char *scheme = evhttp_uri_get_scheme(http_uri);
+    if (strcasecmp(scheme, "http") == 0)
+        return 80;
+
+    if (strcasecmp(scheme, "https") == 0)
+        return 443;
+
+    return 0;
+}
+
+char *evhttp_uri_get_path_web(struct evhttp_uri *http_uri)
+{
+    const char *path = evhttp_uri_get_path(http_uri);
+
+    if ((path == NULL) || (strlen(path) == 0)) {
+        path = "/";
     }
 
-    res->scheme = evhttp_uri_get_scheme(res->http_uri);
+    const char *query = evhttp_uri_get_query(http_uri);
 
-    if (res->scheme == NULL) {
-        fprintf(stderr, "url has no scheme\n");
-        goto ouch;
-    }
-
-    res->host = evhttp_uri_get_host(res->http_uri);
-
-    if (res->host == NULL) {
-        fprintf(stderr, "url must have a host\n");
-        goto ouch;
-    }
-
-    res->port = evhttp_uri_get_port(res->http_uri);
-
-    if (res->port == -1) {
-        res->port = (strcasecmp(res->scheme, "http") == 0) ? 80 : 443;
-    }
-
-    res->path = evhttp_uri_get_path(res->http_uri);
-
-    if (res->path == NULL) {
-        res->path = "/";
-    }
-
-    res->query = evhttp_uri_get_query(res->http_uri);
-
-    if (res->query == NULL) {
-        snprintf(res->uri, sizeof(res->uri) - 1, "%s", res->path);
+    char *res;
+    if (query == NULL) {
+        res = strdup(path);
     }
     else {
-        snprintf(res->uri, sizeof(res->uri) - 1, "%s?%s", res->path, res->query);
-    }
-
-    res->uri[sizeof(res->uri) - 1] = '\0';
-
-    return res;
-
-ouch:
-
-    if (res->http_uri) {
-        evhttp_uri_free(res->http_uri);
-    }
-
-    free(res);
-    return NULL;
-}
-
-
-
-
-struct http_request {
-    http_ssl_conn_t *sslconn;
-    struct evhttp_request *req;
-    short options;
-    void *userdata;
-};
-
-http_request_t *http_request_make_request(http_ssl_conn_t *conn,
-        short options,
-        const char *uri,
-        http_request_alter_func_t custom_request_func,
-        request_cb_t req_cb,
-        void *userdata)
-{
-    http_request_t *res = malloc(sizeof(http_request_t));
-    res->options = options;
-    res->sslconn = conn;
-    res->userdata = userdata;
-
-    res->req = evhttp_request_new(req_cb, userdata);
-
-    struct evkeyvalq *output_headers = evhttp_request_get_output_headers(res->req);
-
+        res = malloc(strlen(path) + strlen(query) + 2);
+        sprintf(res, "%s?%s", path, query);
     if (!(res->options & HRO_REQ_DONT_ADD_HOST_HEADER)) {
-        evhttp_add_header(output_headers, "Host", lew_ssl_get_hostname(conn->essl));
     }
-
-    enum evhttp_cmd_type req_type = EVHTTP_REQ_GET;
-
-    if (custom_request_func) {
-        req_type = custom_request_func(res->req, userdata);
-    }
-
-    evhttp_make_request(conn->evhttpcon, res->req, req_type, uri);
 
     return res;
-}
-
-void http_request_cleanup(http_request_t *request)
-{
-    if (request->options & HRO_REQ_CAN_FREE_CONN) {
-        http_ssl_conn_cleanup(request->sslconn);
-    }
-
-    free(request);
 }
