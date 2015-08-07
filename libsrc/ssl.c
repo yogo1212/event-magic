@@ -4,7 +4,6 @@
 #include <openssl/x509.h>
 
 #include <event2/bufferevent_ssl.h>
-
 #include <event2/dns.h>
 
 #include "openssl_hostname_validation.h"
