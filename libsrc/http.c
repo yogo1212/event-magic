@@ -72,7 +72,6 @@ char *evhttp_uri_get_path_web(struct evhttp_uri *http_uri)
     else {
         res = malloc(strlen(path) + strlen(query) + 2);
         sprintf(res, "%s?%s", path, query);
-    if (!(res->options & HRO_REQ_DONT_ADD_HOST_HEADER)) {
     }
 
     return res;
