@@ -42,15 +42,20 @@ struct evhttp_connection *http_ssl_get_evhttp_con(http_ssl_conn_t *con)
 uint16_t evhttp_uri_get_port_web(struct evhttp_uri *http_uri)
 {
     int port = evhttp_uri_get_port(http_uri);
-    if (port > -1)
+
+    if (port > -1) {
         return port;
+    }
 
     const char *scheme = evhttp_uri_get_scheme(http_uri);
-    if (strcasecmp(scheme, "http") == 0)
-        return 80;
 
-    if (strcasecmp(scheme, "https") == 0)
+    if (strcasecmp(scheme, "http") == 0) {
+        return 80;
+    }
+
+    if (strcasecmp(scheme, "https") == 0) {
         return 443;
+    }
 
     return 0;
 }
@@ -66,6 +71,7 @@ char *evhttp_uri_get_path_web(struct evhttp_uri *http_uri)
     const char *query = evhttp_uri_get_query(http_uri);
 
     char *res;
+
     if (query == NULL) {
         res = strdup(path);
     }

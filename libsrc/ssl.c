@@ -90,7 +90,7 @@ static void ssl_dns_callback(int errcode, struct evutil_addrinfo *addr, void *pt
 
         //add the port and - voila
         bufferevent_socket_connect(essl->bev, addr->ai_addr, addr->ai_addrlen);
-end:
+    end:
         evutil_freeaddrinfo(addr);
         essl->state = SSL_STATE_CONNECTED;
     }
@@ -325,8 +325,9 @@ static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
     server_cert = X509_STORE_CTX_get_current_cert(x509_ctx);
 
     if (!server_cert) {
-        if (!res_str)
+        if (!res_str) {
             res_str = "current cert NULL!";
+        }
 
         goto leave;
     }
@@ -336,41 +337,43 @@ static int cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
     X509_NAME_oneline(X509_get_subject_name(server_cert), cert_str,
                       sizeof(cert_str));
 
-    if (res_str)
+    if (res_str) {
         goto leave;
+    }
 
 
     res = validate_hostname(essl->hostname, server_cert);
 
     switch (res) {
-    case MatchFound:
-        break;
+        case MatchFound:
+            break;
 
-    case MatchNotFound:
-        res_str = "MatchNotFound";
-        break;
+        case MatchNotFound:
+            res_str = "MatchNotFound";
+            break;
 
-    case NoSANPresent:
-        res_str = "NoSANPresent";
-        break;
+        case NoSANPresent:
+            res_str = "NoSANPresent";
+            break;
 
-    case MalformedCertificate:
-        res_str = "MalformedCertificate";
-        break;
+        case MalformedCertificate:
+            res_str = "MalformedCertificate";
+            break;
 
-    case Error:
-        res_str = "Error";
-        break;
+        case Error:
+            res_str = "Error";
+            break;
 
-    default:
-        res_str = "WTF!";
-        break;
+        default:
+            res_str = "WTF!";
+            break;
     }
 
 
     if (res == MatchFound) {
         return 1;
     }
+
 leave:
     essl->errorlen = snprintf(essl->error, sizeof(essl->error) - 1,
                               "validating '%s' failed at '%s': '%s'", essl->hostname, server_cert ? cert_str : "", res_str);

@@ -41,8 +41,9 @@ static void stdinreadcb(struct bufferevent *bev, void *ctx)
     uint8_t buf[512];
     size_t rsize;
 
-    while ((rsize = bufferevent_read(bev, buf, sizeof(buf))) > 0)
+    while ((rsize = bufferevent_read(bev, buf, sizeof(buf))) > 0) {
         bufferevent_write(bev_ssl, buf, rsize);
+    }
 }
 
 static void sslineventcb(struct bufferevent *bev, short events, void *ptr)
@@ -68,8 +69,9 @@ static void sslinreadcb(struct bufferevent *bev, void *ctx)
     uint8_t buf[512];
     size_t rsize;
 
-    while ((rsize = bufferevent_read(bev, buf, sizeof(buf))) > 0)
+    while ((rsize = bufferevent_read(bev, buf, sizeof(buf))) > 0) {
         fwrite(buf, rsize, 1, stdout);
+    }
 }
 
 void handle_interrupt(int fd, short events, void *arg)
@@ -100,24 +102,24 @@ int main(int argc, char *argv[])
     }
 
     lew_ssl_factory_t *essl = lew_ssl_create
-                      (
-                          base,
-                          argv[1],
-                          atoi(argv[2]),
-                          NULL,
-                          NULL,
-                          NULL
-                      );
+                              (
+                                  base,
+                                  argv[1],
+                                  atoi(argv[2]),
+                                  NULL,
+                                  NULL,
+                                  NULL
+                              );
     lew_ssl_dont_really_ssl(essl);
 
     int stdinfd = fileno(stdin);
     evutil_make_socket_nonblocking(stdinfd);
 
     bev_stdin = bufferevent_socket_new(
-                       base,
-                       stdinfd,
-                       BEV_OPT_DEFER_CALLBACKS
-                   );
+                    base,
+                    stdinfd,
+                    BEV_OPT_DEFER_CALLBACKS
+                );
 
     bufferevent_setcb(bev_stdin, stdinreadcb, NULL, stdineventcb, "stdin");
 

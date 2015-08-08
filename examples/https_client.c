@@ -79,14 +79,15 @@ int main(int argc, char *argv[])
     }
 
     lew_ssl_factory_t *essl = lew_ssl_create
-                      (
-                          base,
-                          evhttp_uri_get_host(http_uri),
-                          evhttp_uri_get_port_web(http_uri),
-                          NULL,
-                          NULL,
-                          NULL
-                      );
+                              (
+                                  base,
+                                  evhttp_uri_get_host(http_uri),
+                                  evhttp_uri_get_port_web(http_uri),
+                                  NULL,
+                                  NULL,
+                                  NULL
+                              );
+
     if (strcasecmp(evhttp_uri_get_scheme(http_uri), "https") != 0) {
         fprintf(stderr, "not really ssl-ing\n");
         lew_ssl_dont_really_ssl(essl);

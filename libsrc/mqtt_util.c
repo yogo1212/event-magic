@@ -50,6 +50,7 @@ static char *dull_replace(const char *in, const char *pattern, const char *by)
     size_t resoffset = 0;
 
     char *needle;
+
     while ((needle = strstr(in, pattern))) {
         // copy everything up to the pattern
         memcpy(res + resoffset, in, needle - in);
@@ -104,9 +105,10 @@ static bool subscription_matches_topic(mqtt_subscription_t *sub, const char *top
 static void mqtt_subscription_notify_handlers(mqtt_subscription_t *sub, mqtt_subscription_engine_t *se, const char *topic, const void *message, size_t len, bool retain, uint8_t qos)
 {
     mqtt_subscription_handler_t *h;
-    for(h = (mqtt_subscription_handler_t *) utarray_front(sub->handlers);
-            h != NULL;
-            h = (mqtt_subscription_handler_t *) utarray_next(sub->handlers, h)) {
+
+    for (h = (mqtt_subscription_handler_t *) utarray_front(sub->handlers);
+         h != NULL;
+         h = (mqtt_subscription_handler_t *) utarray_next(sub->handlers, h)) {
         h->cb(se->mc, topic, message, len, retain, qos, h->ctx);
     }
 }
@@ -120,15 +122,16 @@ static void mqtt_subscription_add_handler(mqtt_subscription_t *sub, mqtt_session
 static mqtt_subscription_handler_t *mqtt_subscription_find_handler(mqtt_subscription_t *sub, mqtt_session_message_handler_t cb, void *ctx)
 {
     mqtt_subscription_handler_t *h;
-    for(h = (mqtt_subscription_handler_t *) utarray_front(sub->handlers);
-        h != NULL;
-        h = (mqtt_subscription_handler_t *) utarray_next(sub->handlers, h)) {
+
+    for (h = (mqtt_subscription_handler_t *) utarray_front(sub->handlers);
+         h != NULL;
+         h = (mqtt_subscription_handler_t *) utarray_next(sub->handlers, h)) {
         if (h->cb == cb && h->ctx == ctx) {
             return h;
         }
     }
 
-     return NULL;
+    return NULL;
 }
 
 static bool mqtt_subscription_has_handlers(mqtt_subscription_t *sub)
@@ -139,8 +142,10 @@ static bool mqtt_subscription_has_handlers(mqtt_subscription_t *sub)
 static void mqtt_subscription_remove_handler(mqtt_subscription_t *sub, mqtt_session_message_handler_t cb, void *ctx)
 {
     mqtt_subscription_handler_t *h;
-    if (!(h = mqtt_subscription_find_handler(sub, cb, ctx)))
+
+    if (!(h = mqtt_subscription_find_handler(sub, cb, ctx))) {
         return;
+    }
 
     mqtt_subscription_handler_t *back = utarray_back(sub->handlers);
     h->cb = back->cb;
@@ -265,10 +270,13 @@ bool mqtt_subscription_engine_sub(mqtt_subscription_engine_t *se, const char *to
 
     if (!sub) {
         sub = mqtt_subscription_new(se, topic, qos);
-        if (!sub)
+
+        if (!sub) {
             return false;
+        }
+
         HASH_ADD_KEYPTR(hh, se->subs, topic, strlen(topic), sub);
-   }
+    }
 
     mqtt_subscription_add_handler(sub, cb, ctx);
 
@@ -282,6 +290,7 @@ void mqtt_subscription_engine_unsub(mqtt_subscription_engine_t *se, const char *
 
     if (sub) {
         mqtt_subscription_remove_handler(sub, cb, ctx);
+
         if (mqtt_subscription_has_handlers(sub)) {
             HASH_DEL(se->subs, sub);
             mqtt_subscription_free(sub);

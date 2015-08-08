@@ -12,30 +12,30 @@ const char *mqtt_connack_code_str(enum MQTT_CONNACK_CODE code)
     char *res = "UNKNOWN_CONACK_VALUE";
 
     switch (code) {
-    case MQTT_CONNACK_ACCEPTED:
-        res = "MQTT_CONNACK_ACCEPTED";
-        break;
+        case MQTT_CONNACK_ACCEPTED:
+            res = "MQTT_CONNACK_ACCEPTED";
+            break;
 
-    case MQTT_CONNACK_UNACC_PROTO_VERSION:
-        res = "MQTT_HEADER_CONNACK_UNACC_PROTO_VERSION";
+        case MQTT_CONNACK_UNACC_PROTO_VERSION:
+            res = "MQTT_HEADER_CONNACK_UNACC_PROTO_VERSION";
 
-        break;
+            break;
 
-    case MQTT_CONNACK_ID_REJECT:
-        res = "MQTT_HEADER_CONNACK_ID_REJECT";
-        break;
+        case MQTT_CONNACK_ID_REJECT:
+            res = "MQTT_HEADER_CONNACK_ID_REJECT";
+            break;
 
-    case MQTT_HEADER_CONNACK_SERVER_UNAVAIL:
-        res = "MQTT_HEADER_CONNACK_SERVER_UNAVAIL";
-        break;
+        case MQTT_HEADER_CONNACK_SERVER_UNAVAIL:
+            res = "MQTT_HEADER_CONNACK_SERVER_UNAVAIL";
+            break;
 
-    case MQTT_HEADER_CONNACK_BAD_USER_PASS:
-        res = "MQTT_HEADER_CONNACK_BAD_USER_PASS";
-        break;
+        case MQTT_HEADER_CONNACK_BAD_USER_PASS:
+            res = "MQTT_HEADER_CONNACK_BAD_USER_PASS";
+            break;
 
-    case MQTT_HEADER_CONNACK_NOT_AUTHORIZED:
-        res = "MQTT_HEADER_CONNACK_NOT_AUTHORIZED";
-        break;
+        case MQTT_HEADER_CONNACK_NOT_AUTHORIZED:
+            res = "MQTT_HEADER_CONNACK_NOT_AUTHORIZED";
+            break;
     }
 
     return res;
