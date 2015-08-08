@@ -9,13 +9,13 @@ size_t get_utf8_char_count(const void *buf, size_t bytecount);
 size_t get_utf8_byte_count(const void *buf, size_t charcount);
 
 enum CONVERSION_ERROR {
-    CE_OK = 0,
-    CE_ICONV_OPEN_ERRNO,
-    CE_CANT_CONVERT_COMB,
-    CE_INVALID_SEQ,
-    CE_INCOMPLETE_SEQ,
-    CE_UNKOWN_ICONV_ERRNO,
-    CE_BUFFER_SIZE
+	CE_OK = 0,
+	CE_ICONV_OPEN_ERRNO,
+	CE_CANT_CONVERT_COMB,
+	CE_INVALID_SEQ,
+	CE_INCOMPLETE_SEQ,
+	CE_UNKOWN_ICONV_ERRNO,
+	CE_BUFFER_SIZE
 };
 
 enum CONVERSION_ERROR local_to_utf8(const char *buf, size_t bufbc, char **out, size_t *outbc);

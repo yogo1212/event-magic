@@ -35,11 +35,11 @@ SOFTWARE.
  */
 
 typedef enum {
-    MatchFound,
-    MatchNotFound,
-    NoSANPresent,
-    MalformedCertificate,
-    Error
+	MatchFound,
+	MatchNotFound,
+	NoSANPresent,
+	MalformedCertificate,
+	Error
 } HostnameValidationResult;
 
 /**

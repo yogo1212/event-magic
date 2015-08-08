@@ -13,12 +13,12 @@ struct lew_ssl_factory;
 typedef struct lew_ssl_factory lew_ssl_factory_t;
 
 typedef enum {
-    // errorstr
-    SSL_ERROR_INIT,
-    SSL_ERROR_CONFIG,
-    SSL_ERROR_DNS,
-    SSL_ERROR_ALERT,
-    SSL_ERROR_CONNECTION
+	// errorstr
+	SSL_ERROR_INIT,
+	SSL_ERROR_CONFIG,
+	SSL_ERROR_DNS,
+	SSL_ERROR_ALERT,
+	SSL_ERROR_CONNECTION
 } lew_ssl_error_t;
 
 /* Return true if you want the library to free the struct. Return false if you want to do that yourself later */
@@ -27,12 +27,12 @@ typedef bool (*lew_ssl_error_cb_t)(lew_ssl_factory_t *essl, lew_ssl_error_t erro
 typedef const char *(*lew_ssl_ssl_ctx_config)(lew_ssl_factory_t *essl, SSL_CTX *ssl_ctx);
 
 lew_ssl_factory_t *lew_ssl_create(
-    struct event_base *base,
-    const char *hostname,
-    const int port,
-    void *userptr,
-    lew_ssl_ssl_ctx_config configcb,
-    lew_ssl_error_cb_t errorcb
+	struct event_base *base,
+	const char *hostname,
+	const int port,
+	void *userptr,
+	lew_ssl_ssl_ctx_config configcb,
+	lew_ssl_error_cb_t errorcb
 );
 void lew_ssl_connection_cleanup(lew_ssl_factory_t *essl);
 
