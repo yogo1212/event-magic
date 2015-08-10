@@ -6,6 +6,8 @@
 #include <event2/event.h>
 #include <event2/bufferevent.h>
 
+#include <event-magic/ssl.h>
+
 struct mqtt_session;
 typedef struct mqtt_session mqtt_session_t;
 
@@ -32,7 +34,6 @@ void mqtt_session_set_event_cb(mqtt_session_t *mc, mqtt_session_event_handler_t 
  */
 typedef void (*mqtt_session_message_handler_t)(mqtt_session_t *mc, const char *topic, const void *message, size_t len, bool retain, uint8_t qos, void *arg);
 typedef void (*mqtt_session_error_handler_t)(mqtt_session_t *mc, enum mqtt_session_error err, char *msg);
-typedef struct bufferevent *(*build_connection_t)(void *state);
 
 #define MQTT_SESSION_OPT_AUTORECONNECT 1
 

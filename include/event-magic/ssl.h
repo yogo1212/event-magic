@@ -42,6 +42,7 @@ void lew_ssl_set_info_cb(lew_ssl_factory_t *essl, lew_ssl_info_cb_t infocb);
 char *lew_ssl_get_error(lew_ssl_factory_t *essl);
 void lew_ssl_dont_really_ssl(lew_ssl_factory_t *essl);
 
+typedef struct bufferevent *(*build_connection_t)(void *state);
 struct bufferevent *lew_ssl_connect(lew_ssl_factory_t *essl);
 
 const char *lew_ssl_get_hostname(lew_ssl_factory_t *essl);
