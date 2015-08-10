@@ -228,10 +228,12 @@ struct bufferevent *lew_ssl_connect(lew_ssl_factory_t *essl)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
+
+	struct bufferevent *res = essl->bev;
 	evdns_getaddrinfo(essl->dns_base, essl->hostname, NULL,
 		  &hints, ssl_dns_callback, essl);
 
-	return essl->bev;
+	return res;
 }
 
 lew_ssl_factory_t *lew_ssl_create(
