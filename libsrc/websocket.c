@@ -209,7 +209,7 @@ void websocket_session_send_message(websocket_session_t *ws, websocket_session_c
 	evutil_secure_rng_get_bytes(info.mask, 4);
 
 	// TODO stop if len > SIZET_MAX
-	// same on reception
+	// sure. just check if evbuffer_get_size is >SIZET_MAX. the result is size_t. oops.
 
 	struct evbuffer *outbuf;
 
@@ -358,6 +358,7 @@ static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 			ws->current_content = evbuffer_new();
 		}
 
+		// TODO payload_len could be >SIZE_T max..
 		evbuffer_remove_buffer(inbuf, ws->current_content, info.payload_len);
 		if (info.fin) {
 			if (ws->user_messagecb) {
