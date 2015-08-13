@@ -215,7 +215,8 @@ void websocket_session_send_message(websocket_session_t *ws, websocket_session_c
 
 	do {
 		info.fin = (fragment_size == 0) || (fragment_size >= evbuffer_get_length(evb));
-		// TODO think about this again
+		// if info.fin is true then frag_size is zero or bigger than len -> len
+		// if it's false frag_size is <>0 and <len -> frag_size
 		info.payload_len = info.fin ? evbuffer_get_length(evb) : fragment_size;
 
 		outbuf = evbuffer_new();
@@ -236,7 +237,6 @@ void websocket_session_send_message(websocket_session_t *ws, websocket_session_c
 static void _websocket_session_disconnect(websocket_session_t *ws, const char *reason)
 {
 	if (ws->state == WS_STATE_DISCONNECTED) {
-		// TODO error?
 		return;
 	}
 
@@ -274,7 +274,6 @@ static void websocket_session_evtcb(struct bufferevent *bev, short what, void *c
 	(void) bev;
 
 	websocket_session_t *ws = ctx;
-	// TODO
 	call_debug_cb(ws, "evtcb with %d\n", what);
 	if (what & BEV_EVENT_EOF) {
 		if (ws->state == WS_STATE_CONNECTED)
