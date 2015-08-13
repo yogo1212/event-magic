@@ -625,6 +625,11 @@ websocket_session_t *websocket_session_create(struct event_base *base, const cha
 	res->current_content = NULL;
 	res->ctx = ctx;
 
+	res->user_messagecb = NULL;
+	res->user_evtcb = NULL;
+	res->user_errcb = NULL;
+	res->user_dbgcb = NULL;
+
 	res->bev = bc(bc_arg);
 
 	res->outgoing_active = false;
