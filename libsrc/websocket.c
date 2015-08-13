@@ -294,6 +294,7 @@ static void websocket_session_evtcb(struct bufferevent *bev, short what, void *c
 	}
 }
 
+#define payload_length_error_message "payload-length is more than SIZE_MAX"
 static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 {
 	websocket_session_t *ws = ctx;
@@ -321,6 +322,24 @@ static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 	if (info.masked) {
 		call_error_cb(ws, WEBSOCKET_SESSION_ERROR_PROTOCOL, "received a masked frame from the server.. closing connection");
 		_websocket_session_disconnect(ws, "masked frame");
+		return;
+	}
+
+	if (info.payload_len > SIZE_MAX) {
+		// just kill me already..
+		call_error_cb(ws, WEBSOCKET_SESSION_ERROR_MESSAGE_SIZE, payload_length_error_message);
+		struct evbuffer *payload = evbuffer_new();
+
+		evbuffer_add_printf(payload, payload_length_error_message);
+		struct evbuffer *outframe = websocket_session_build_frame(ws, true, WS_FRAME_CLOSE, payload);
+		evbuffer_free(payload);
+		websocket_session_send_frame(ws, outframe, false);
+
+		// TODO ohh, this is so not nice...
+		bufferevent_flush(ws->bev, EV_WRITE, BEV_NORMAL);
+
+		ws->state = WS_STATE_DISCONNECTING;
+		_websocket_session_disconnect(ws, payload_length_error_message);
 		return;
 	}
 
@@ -358,8 +377,22 @@ static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 			ws->current_content = evbuffer_new();
 		}
 
-		// TODO payload_len could be >SIZE_T max..
-		evbuffer_remove_buffer(inbuf, ws->current_content, info.payload_len);
+		// why did they design it in a way that frames can be that long...
+		// if all frames can  be2^64 bytes long and message can consist of an infinite amount of frames..
+		// effectively, there is no upper boundary anyway..
+
+		// do the new bytes fit in the buffer?
+		size_t diff = SIZE_MAX - evbuffer_get_length(ws->current_content);
+		if (info.payload_len > diff) {
+			evbuffer_remove_buffer(inbuf, ws->current_content, diff);
+			uint64_t remaining = info.payload_len - diff;
+			call_error_cb(ws, WEBSOCKET_SESSION_ERROR_MESSAGE_SIZE, "dropping %" PRIu64 " bytes", remaining);
+			// the watermarks couldn't have been set to more than SIZE_MAX anyway - else there would have to be a loop draining the input-buffer
+			evbuffer_drain(inbuf, remaining);
+		}
+		else
+			evbuffer_remove_buffer(inbuf, ws->current_content, info.payload_len);
+
 		if (info.fin) {
 			if (ws->user_messagecb) {
 				ws->user_messagecb(ws, ws->current_content_type, ws->current_content);

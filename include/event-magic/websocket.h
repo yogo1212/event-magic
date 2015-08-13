@@ -22,6 +22,7 @@ typedef enum {
 	WEBSOCKET_SESSION_ERROR_NETWORK,
 	WEBSOCKET_SESSION_ERROR_PROTOCOL,
 	WEBSOCKET_SESSION_ERROR_HANDSHAKE,
+	WEBSOCKET_SESSION_ERROR_MESSAGE_SIZE,
 	WEBSOCKET_SESSION_ERROR_MEMORY
 } websocket_session_error_t;
 typedef void (*websocket_session_errcb_t)(websocket_session_t *ws, websocket_session_event_t error, const char *msg);
