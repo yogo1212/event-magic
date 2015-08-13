@@ -276,6 +276,8 @@ static void websocket_session_evtcb(struct bufferevent *bev, short what, void *c
 	websocket_session_t *ws = ctx;
 	call_debug_cb(ws, "evtcb with %d\n", what);
 	if (what & BEV_EVENT_EOF) {
+		if (ws->state != WS_STATE_DISCONNECTING)
+			call_error_cb(ws, WEBSOCKET_SESSION_ERROR_NETWORK, "transport closed");
 		if (ws->state == WS_STATE_CONNECTED)
 			ws->state = WS_STATE_DISCONNECTING;
 		_websocket_session_disconnect(ws, NULL);
@@ -283,6 +285,8 @@ static void websocket_session_evtcb(struct bufferevent *bev, short what, void *c
 	if (what & (BEV_EVENT_ERROR | BEV_EVENT_TIMEOUT)) {
 		if (ws->state == WS_STATE_CONNECTED)
 			ws->state = WS_STATE_DISCONNECTING;
+		// am i not lazy? they could both appear at once..
+		call_error_cb(ws, WEBSOCKET_SESSION_ERROR_NETWORK, "transport: %s", (what & BEV_EVENT_ERROR ? "error" : "timeout"));
 		_websocket_session_disconnect(ws, NULL);
 	}
 	if (what & BEV_EVENT_CONNECTED) {
