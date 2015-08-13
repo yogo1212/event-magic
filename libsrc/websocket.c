@@ -40,6 +40,7 @@ struct websocket_session {
 	void *create_connection_arg;
 	struct bufferevent *bev;
 
+	websocket_session_dbgcb_t user_dbgcb;
 	websocket_session_evtcb_t user_evtcb;
 	websocket_session_errcb_t user_errcb;
 	websocket_session_messagecb_t user_messagecb;
@@ -56,17 +57,6 @@ struct websocket_session {
 
 static void call_debug_cb(websocket_session_t *ws, const char *fmt, ...)
 {
-// TODO
-#if 1
-	(void) ws;
-
-	va_list va;
-	va_start(va, fmt);
-	char *bla = alloca(strlen(fmt) + 2);
-	sprintf(bla, "%s\n", fmt);
-	vfprintf(stderr, bla, va);
-	va_end(va);
-#else
 	if (!ws->user_dbgcb)
 		return;
 
@@ -74,7 +64,7 @@ static void call_debug_cb(websocket_session_t *ws, const char *fmt, ...)
 	va_start(va, fmt);
 
 	struct evbuffer *evb = evbuffer_new();
-	evbuffer_add_vprintf(evb, fmt, va)
+	evbuffer_add_vprintf(evb, fmt, va);
 
 	va_end(va);
 
@@ -88,7 +78,6 @@ static void call_debug_cb(websocket_session_t *ws, const char *fmt, ...)
 	ws->user_dbgcb(ws, str);
 
 	free(str);
-#endif
 }
 
 static void call_error_cb(websocket_session_t *ws, websocket_session_error_t err, const char *fmt, ...)
@@ -669,6 +658,11 @@ void websocket_session_set_callbacks(websocket_session_t *ws, websocket_session_
 	ws->user_evtcb = evtcb;
 	ws->user_errcb = errcb;
 	ws->user_messagecb = messagecb;
+}
+
+void websocket_session_set_dbg_cb(websocket_session_t *ws, websocket_session_dbgcb_t dbgcb)
+{
+	ws->user_dbgcb = dbgcb;
 }
 
 void websocket_session_free(websocket_session_t *ws)

@@ -32,10 +32,13 @@ typedef enum {
 } websocket_session_content_type;
 typedef void (*websocket_session_messagecb_t)(websocket_session_t *ws, websocket_session_content_type type, struct evbuffer *evb);
 
+typedef void (*websocket_session_dbgcb_t)(websocket_session_t *ws, const char *msg);
+
 /* fragment_size can be 0 */
 void websocket_session_send_message(websocket_session_t *ws, websocket_session_content_type type, struct evbuffer *evb, size_t fragment_size);
 
 void websocket_session_set_callbacks(websocket_session_t *ws, websocket_session_evtcb_t evtcb, websocket_session_errcb_t errcb, websocket_session_messagecb_t messagecb);
+void websocket_session_set_dbg_cb(websocket_session_t *ws, websocket_session_dbgcb_t dbgcb);
 void websocket_session_set_protocols(websocket_session_t *ws, const char *protocols);
 void websocket_session_set_origin(websocket_session_t *ws, const char *origin);
 
