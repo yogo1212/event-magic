@@ -1,4 +1,5 @@
 #include <endian.h>
+#include <inttypes.h>
 #include <string.h>
 #include <sys/queue.h>
 
@@ -310,6 +311,7 @@ static void websocket_session_evtcb(struct bufferevent *bev, short what, void *c
 }
 
 #define payload_length_error_message "payload-length is more than SIZE_MAX"
+#define frame_size_error_message "invalid control frame size"
 static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 {
 	websocket_session_t *ws = ctx;
@@ -362,6 +364,7 @@ static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 
 	bool has_message = false;
 	bool is_first_content = true;
+	char control_frame_msg[128];
 	switch (info.opcode) {
 		case WS_FRAME_CONT:
 				is_first_content = false;
@@ -376,8 +379,15 @@ static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 		case WS_FRAME_CLOSE:
 		case WS_FRAME_PING:
 		case WS_FRAME_PONG:
-			// TODO
-			evbuffer_drain(inbuf, info.payload_len);
+			// at least they gave this control frames a proper limit
+			if (info.payload_len > 125) {
+				// TODO ouch here	- can't we still send the close?
+				call_error_cb(ws, WEBSOCKET_SESSION_ERROR_MESSAGE_SIZE, frame_size_error_message);
+				ws->state = WS_STATE_DISCONNECTING;
+				_websocket_session_disconnect(ws, frame_size_error_message);
+			}
+			evbuffer_remove(inbuf, control_frame_msg, info.payload_len);
+			control_frame_msg[info.payload_len] = '\0';
 			break;
 		default:
 			// TODO erroar?
