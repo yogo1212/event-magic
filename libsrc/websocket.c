@@ -152,15 +152,15 @@ static void websocket_session_writecb(struct bufferevent *bev, void *ctx)
 }
 
 /* takes ownership of evb! */
-static void websocket_session_send_frame(websocket_session_t *ws, struct evbuffer *evb, bool inorder)
+static void _websocket_session_send_frame(websocket_session_t *ws, struct evbuffer *evb, bool urgent)
 {
 	if (ws->outgoing_active) {
 		struct outgoing_frame *frame = malloc(sizeof(struct outgoing_frame));
 		frame->buf = evb;
-		if (inorder)
-			STAILQ_INSERT_TAIL(&ws->outgoing_head, frame, frames);
-		else
+		if (urgent)
 			STAILQ_INSERT_HEAD(&ws->outgoing_head, frame, frames);
+		else
+			STAILQ_INSERT_TAIL(&ws->outgoing_head, frame, frames);
 		call_debug_cb(ws, "putting frame in list for later");
 	}
 	else {
@@ -173,7 +173,8 @@ static void websocket_session_send_frame(websocket_session_t *ws, struct evbuffe
 	}
 }
 
-static void _mask_outgoing(struct evbuffer *in, const ws_frame_header_info_t *info, struct evbuffer *out)
+// TODO might give this length- and mask-parameters instead of info
+static void _mask_buffer(struct evbuffer *in, const ws_frame_header_info_t *info, struct evbuffer *out)
 {
 	size_t remaining = info->payload_len;
 	// hoping size_t is the biggest the ALU can handle natively
@@ -194,6 +195,26 @@ static void _mask_outgoing(struct evbuffer *in, const ws_frame_header_info_t *in
 	}
 }
 
+/* will generate mask and apply it to the payload. payload will be drained by payload_len */
+static void websocket_session_build_and_send_frame(websocket_session_t *ws, ws_frame_header_info_t *info, struct evbuffer *payload)
+{
+	// TODO payload_len > SIZE_MAX
+	struct evbuffer *res = evbuffer_new();
+	if (info->masked)
+		evutil_secure_rng_get_bytes(info->mask, 4);
+
+	_websocket_session_pack_header(info, res);
+
+	if (info->masked) {
+		_mask_buffer(payload, info, res);
+	}
+	else {
+		evbuffer_remove_buffer(payload, res, info->payload_len);
+	}
+
+	_websocket_session_send_frame(ws, res, (info->opcode & 0x8) != 0);;
+}
+
 void websocket_session_send_message(websocket_session_t *ws, websocket_session_content_type type, struct evbuffer *evb, size_t fragment_size)
 {
 	ws_frame_header_info_t info;
@@ -211,19 +232,13 @@ void websocket_session_send_message(websocket_session_t *ws, websocket_session_c
 	// TODO stop if len > SIZET_MAX
 	// sure. just check if evbuffer_get_size is >SIZET_MAX. the result is size_t. oops.
 
-	struct evbuffer *outbuf;
-
 	do {
 		info.fin = (fragment_size == 0) || (fragment_size >= evbuffer_get_length(evb));
 		// if info.fin is true then frag_size is zero or bigger than len -> len
 		// if it's false frag_size is <>0 and <len -> frag_size
 		info.payload_len = info.fin ? evbuffer_get_length(evb) : fragment_size;
 
-		outbuf = evbuffer_new();
-		_websocket_session_pack_header(&info, outbuf);
-		_mask_outgoing(evb, &info, outbuf);
-
-		websocket_session_send_frame(ws, outbuf, true);
+		websocket_session_build_and_send_frame(ws, &info, evb);
 
 		info.opcode = WS_FRAME_CONT;
 	} while (!info.fin);
@@ -330,13 +345,15 @@ static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 		call_error_cb(ws, WEBSOCKET_SESSION_ERROR_MESSAGE_SIZE, payload_length_error_message);
 		struct evbuffer *payload = evbuffer_new();
 
-		evbuffer_add_printf(payload, payload_length_error_message);
-		struct evbuffer *outframe = websocket_session_build_frame(ws, true, WS_FRAME_CLOSE, payload);
-		evbuffer_free(payload);
-		websocket_session_send_frame(ws, outframe, false);
+		{
+			// TODO ohh, this is so not nice...
+			evbuffer_add_printf(payload, payload_length_error_message);
+			ws_frame_header_info_t outinfo = { true, WS_FRAME_CLOSE, true, evbuffer_get_length(payload), {0,0,0,0} };
+			websocket_session_build_and_send_frame(ws, &outinfo, payload);
+			evbuffer_free(payload);
 
-		// TODO ohh, this is so not nice...
-		bufferevent_flush(ws->bev, EV_WRITE, BEV_NORMAL);
+			bufferevent_flush(ws->bev, EV_WRITE, BEV_NORMAL);
+		}
 
 		ws->state = WS_STATE_DISCONNECTING;
 		_websocket_session_disconnect(ws, payload_length_error_message);
