@@ -10,8 +10,9 @@ void websocket_session_disconnect(websocket_session_t *ws);
 
 typedef enum {
 	WEBSOCKET_SESSION_EVENT_CONNECTED = 1,
-	WEBSOCKET_SESSION_EVENT_DISCONNECTED
-// TODO ping here?
+	WEBSOCKET_SESSION_EVENT_DISCONNECTED,
+	WEBSOCKET_SESSION_EVENT_PING,
+	WEBSOCKET_SESSION_EVENT_PONG
 } websocket_session_event_t;
 /* msg can either be the accepted protocol on connect (NULL if not present) or the reason on close */
 typedef void (*websocket_session_evtcb_t)(websocket_session_t *ws, websocket_session_event_t event, const char *msg);

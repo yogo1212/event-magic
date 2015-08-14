@@ -395,6 +395,24 @@ static void websocket_session_readcb(struct bufferevent *bev, void *ctx)
 			call_debug_cb(ws, "unknown opcode: %d", info.opcode);
 	}
 
+	switch (info.opcode) {
+		case WS_FRAME_CLOSE:
+			ws->state = WS_STATE_DISCONNECTING;
+			_websocket_session_disconnect(ws, control_frame_msg);
+			break;
+		case WS_FRAME_PING:
+			call_event_cb(ws, WEBSOCKET_SESSION_EVENT_PING, control_frame_msg);
+			struct evbuffer *outbuf = evbuffer_new();
+			evbuffer_add(outbuf, control_frame_msg, info.payload_len);
+			ws_frame_header_info_t outinfo = { true, WS_FRAME_PONG, true, info.payload_len, {0,0,0,0} };
+			websocket_session_build_and_send_frame(ws, &outinfo, outbuf);
+			evbuffer_free(outbuf);
+			break;
+		case WS_FRAME_PONG:
+			call_event_cb(ws, WEBSOCKET_SESSION_EVENT_PONG, control_frame_msg);
+			break;
+	}
+
 	if (has_message) {
 		if (is_first_content) {
 			if (ws->current_content) {

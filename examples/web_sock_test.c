@@ -29,7 +29,10 @@ void chat_evtcb(websocket_session_t *ws, websocket_session_event_t event, const 
 			websocket_session_send_message(ws, WEBSOCKET_SESSION_FRAME_TYPE_TEXT, evb, 0);
 			evbuffer_free(evb);
 			break;
+		// TODO
 		case WEBSOCKET_SESSION_EVENT_DISCONNECTED: break;
+		case WEBSOCKET_SESSION_EVENT_PING: break;
+		case WEBSOCKET_SESSION_EVENT_PONG: break;
 	}
 }
 
