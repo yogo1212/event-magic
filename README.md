@@ -19,14 +19,14 @@ What's in it?
 If you think that's great.. Great!
 If you think there's something wrong with it - tell me!
 Any questions? Just ask!
-And if you don't like talking to people or thin: -----> Feel free to steal my code <-----
-You can then still add my name in the source if you're nice - or not (go figure which part that refers to).
+-----> Feel free to steal my code <-----
+You can then still add my name in the source if you're nice - or not (go figure out which part of the previous sentence that refers to).
 
 ## Dependencies
 
 This will not work without an SSL-library or libevent.
 Not tested with the latest release of libevent. It should work with 2.1.5beta, though.
-I test with the latest git. Because i'm a nerd.
+I test with the latest git. Because i like being reckless.
 
 ## Why bother?
 
@@ -44,14 +44,14 @@ Hi, i like food. And women. And men too - generally speaking. I like them all. O
 
 This is a personal project. If you want to add something or recommend a change drop a message or open a pull request.
 
-Ohh.. And: The lists of downsides i have here might not be complete. Please tell me if you think they do.
+Ohh.. And: The lists of downsides here might not be complete. Please tell me if you think they are.
 
 # SSL
 
 Sadly, SSL isn't that well integrated into bufferevents. For instance, reconnecting the same bufferevent after disconnect probably wont work (at least they didn't the last time i checked).
 Maybe that will change but right now it's hard to use. I've seen me and my colleagues writing the same code over and over.
 
-If you feel in a similar way and really hope to see all your problems solved - make sure i don't get your hopes up and then disappoint you:
+If you feel a similar way and really hope to see all your problems solved - make sure i don't get your hopes up and then disappoint you:
 
 ## Downsides
 
@@ -85,7 +85,7 @@ My experience with it just wasn't that magical :-( Ohh, it's so sad  :\*
 
 ## Downsides
 
-- It's author can't really think of any downsides. That's probably a bad thing.
+- Its author can't really think of any downsides. That's probably a bad thing.
 - Or it means, he is tired.
 
 # Websockets
